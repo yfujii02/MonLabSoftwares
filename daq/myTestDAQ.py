@@ -48,11 +48,13 @@ cmaxSamples = ctypes.c_int32(maxSamples)
 fname=''
 ofile={}
 dataToSave={}
+read_ch_en=[True,True,False,False]
+trig_ch_en=[True,True,False,False]
 
 #### Number of points for moving average
 numAve=5
 
-def set_params(var0,var1,var2,var3):
+def set_params(var0,var1,var2,var3,var4,var5):
     global nev
     global thr_mV
     global runMode
@@ -259,21 +261,16 @@ def get_single_event():
         status["isReady"] = ps.ps6000IsReady(chandle, ctypes.byref(ready))
 
     # Create buffers ready for assigning pointers for data collection
-    bufferAMax = (ctypes.c_int16 * maxSamples)()
-    bufferAMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
-    bufferBMax = (ctypes.c_int16 * maxSamples)()
-    bufferBMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
-    # Setting the data buffer location for data collection from channel A
-    # Handle = Chandle
-    # source = ps6000_channel_A = 0
-    # Buffer max = ctypes.byref(bufferAMax)
-    # Buffer min = ctypes.byref(bufferAMin)
-    # Buffer length = maxSamples
-    # Ratio mode = ps6000_Ratio_Mode_None = 0
-    status["setDataBuffersA"] = ps.ps6000SetDataBuffers(chandle, 0, ctypes.byref(bufferAMax), ctypes.byref(bufferAMin), maxSamples, 0)
-    assert_pico_ok(status["setDataBuffersA"])
-    status["setDataBuffersB"] = ps.ps6000SetDataBuffers(chandle, 1, ctypes.byref(bufferBMax), ctypes.byref(bufferBMin), maxSamples, 0)
-    assert_pico_ok(status["setDataBuffersB"])
+    bufferMax=[[],[],[],[]]
+    bufferMin=[[],[],[],[]]
+    status_str=["setDataBuffersA","setDataBuffersB","setDataBuffersC","setDataBuffersD"]
+    for ch in range(4):
+        if read_ch_en[ch]==True:
+            bufferMax[ch] = (ctypes.c_int16 * maxSamples)()
+            bufferMin[ch] = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
+            # Setting the data buffer location for data collection from channel [ch]
+            status[status_str[ch]] = ps.ps6000SetDataBuffers(chandle, ch, ctypes.byref(bufferMax[ch]), ctypes.byref(bufferMin[ch]), maxSamples, 0)
+            assert_pico_ok(status[status_str[ch]])
     
     # Handle = chandle
     # noOfSamples = ctypes.byref(cmaxSamples)
@@ -282,8 +279,8 @@ def get_single_event():
     # DownSampleRatio = 1
     # DownSampleRatioMode = 0
     # Overflow = ctypes.byref(overflow)
-    status["GetValues"] = ps.ps6000GetValues(chandle, 0, ctypes.byref(cmaxSamples), 1, 0, 0, ctypes.byref(overflow))
-    assert_pico_ok(status["GetValues"])
+    status["getValues"] = ps.ps6000GetValues(chandle, 0, ctypes.byref(cmaxSamples), 1, 0, 0, ctypes.byref(overflow))
+    assert_pico_ok(status["getValues"])
     
     #### Below is only option for bulk readout
     ## Handle = chandle
@@ -296,11 +293,16 @@ def get_single_event():
     #status["GetValuesTriggerTimeOffsetBulk"] = ps.ps6000GetValuesTriggerTimeOffsetBulk64(chandle, ctypes.byref(Times), ctypes.byref(TimeUnits), 0, 0)
     #assert_pico_ok(status["GetValuesTriggerTimeOffsetBulk"])
 
-    # Converts ADC from channel A to mV
-    adc2mVChAMax =  adc2mV(bufferAMax, chRange[0], maxADC)
-    # Converts ADC from channel B to mV
-    adc2mVChBMax =  adc2mV(bufferBMax, chRange[1], maxADC)
-    return adc2mVChAMax,adc2mVChBMax
+    # Converts ADC from channel 'ch' to mV
+    adc2mVChMax=[[],[],[],[]]
+    nReadCh=0
+    for ch in range(4):
+        if reach_ch_en[ch]==True:
+            tmpdata = adc2mV(bufferMax[ch], chRange[ch], maxADC)
+        else
+            tmpdata = -999
+        adc2mVChMax[ch]=tmpdata
+    return adc2mVChMax
 
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -315,13 +317,12 @@ def analyse_and_plot_data(data,figname):
     vmin=np.array([])
     charge=np.array([])
     fig = plt.figure(figsize=(15,8))
-    gs  = gridspec.GridSpec(3,4)
+    gs  = gridspec.GridSpec(3,3)
     ax1 = plt.subplot(gs[0,:])
     ax2 = plt.subplot(gs[1,:])
     ax3 = plt.subplot(gs[2,0])
     ax4 = plt.subplot(gs[2,1])
     ax5 = plt.subplot(gs[2,2])
-    ax6 = plt.subplot(gs[2,3])
     #timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
     timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
     startTime2 = startTime + numAve
@@ -330,20 +331,12 @@ def analyse_and_plot_data(data,figname):
         adc2mVChAMax=np.array(data[i])
         avwf = running_mean(adc2mVChAMax[:],numAve)
         baseline =avwf[:windowSize].mean()
-        chargeTmp=(avwf[startTime:stopTime].sum()-baseline*windowSize)
+        chargeTmp=polarity*(avwf[startTime:stopTime].sum()-baseline*windowSize)
         base  = np.append(base, baseline)                     # mean value of the baseline
         wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
         vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
         vmin  = np.append(vmin, avwf[startTime2:stopTime2].min()-baseline) # minimum voltage within the time window
         charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
-        #baseline =adc2mVChAMax[:windowSize].mean()
-        #chargeTmp=(adc2mVChAMax[startTime:stopTime].sum()-baseline*windowSize)
-        #base  = np.append(base, baseline)                             # mean value of the baseline
-        #wfrms = np.append(wfrms, adc2mVChAMax[:windowSize].std())     # standard deviation
-        #vmax  = np.append(vmax, adc2mVChAMax[startTime:stopTime].max()-baseline) # maximum voltage within the time window
-        #vmin  = np.append(vmin, adc2mVChAMax[startTime:stopTime].min()-baseline) # minimum voltage within the time window
-        #charge= np.append(charge, chargeTmp*float(timeIntervalns.value))         # integrated charge
-        #np.savetxt(fname,adc2mVChAMax,fmt='%f',delimiter=' ',newline='\n',header='1000000',footer='2000000',encoding=None)
         if i==0:
             #print('###',i)
             dataToSave=np.transpose(adc2mVChAMax)
@@ -362,12 +355,6 @@ def analyse_and_plot_data(data,figname):
     
     nbins=100
     
-    ##xbins=np.linspace(-4,4,nbins)
-    #xbins=np.linspace(-1,1,nbins)
-    #ax3.hist(base,bins=xbins)
-    #ax3.set_title('baseline')
-    #ax3.set_xlabel('baseline (mv)')
-    
     ymax=0.15*float(nev)
     xbins=np.linspace(0,0.9,nbins)
     ax3.hist(wfrms,bins=xbins)
@@ -376,31 +363,27 @@ def analyse_and_plot_data(data,figname):
     ax3.text(+0.5,0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
     ax3.set_xlabel('rms (mv)')
      
-    ymax=0.12*float(nev)
-    xbins=np.linspace(0,3,nbins)
-    ax4.hist(vmax,bins=xbins)
+    ymax=0.05*float(nev)
+    xbins=np.linspace(0,50,nbins)
+    if (polarity>0):
+        ax4.hist(vmax,bins=xbins)
+        ax4.text(+1.6,0.4*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
+    else: 
+        ax4.hist(-vmin,bins=xbins)
+        ax4.text(-3.0,0.4*ymax,r'$\mu=$'+f'{-vmin.mean():.2f}'+' mV',fontsize=12)
     ax4.set_ylim(0.8,ymax)
     ax4.set_yscale('log')
-    ax4.text(+1.6,0.4*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
     ax4.set_title('Max Peak value')
     ax4.set_xlabel('Max Voltage (mv)')
     
-    xbins=np.linspace(-3,0,nbins)
-    ax5.hist(vmin,bins=xbins)
-    ax5.set_ylim(0.8,ymax)
-    ax5.set_yscale('log')
-    ax5.text(-3.0,0.4*ymax,r'$\mu=$'+f'{vmin.mean():.2f}'+' mV',fontsize=12)
-    ax5.set_title('Min Peak value')
-    ax5.set_xlabel('Min Voltage (mv)')
-    
     ymax=0.08*float(nev)
     xbins=np.linspace(-50,50,nbins)
-    ax6.hist(charge,bins=xbins)
-    ax6.set_ylim(0.8,ymax)
-    ax6.set_yscale('log')
-    ax6.text(22,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
-    ax6.set_title('Integrated charge')
-    ax6.set_xlabel('Charge (mv*ns)')
+    ax5.hist(charge,bins=xbins)
+    ax5.set_ylim(0.8,ymax)
+    ax5.set_yscale('log')
+    ax5.text(22,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
+    ax5.set_title('Integrated charge')
+    ax5.set_xlabel('Charge (mv*ns)')
     
     fig.savefig('/home/comet/Desktop/'+figname)
     plt.close(fig)
@@ -411,38 +394,33 @@ def init_daq():
     global polarity
     if init==False:
         open_scope()
-        channel_init(0)
-        channel_init(1)
+        for ch in range(4):
+            if read_ch_en[ch]==True:
+                channel_init(ch)
         ### pedestal run
         if   runMode==0:
             set_simpleTrigger(thr_mV,1,True)
         elif runMode==1: # negative polarity for SiPM signals
             polarity = -1
-            ch_en=[True,True,False,False]
-            #set_simpleTrigger(thr_mV,0,False)
-            #set_simpleTrigger(thr_mV,1,False)
+            ch_en=trig_ch_en
             set_advancedTrigger(thr_mV,ch_en)
         elif runMode==2: # positive polarity for other tests
             polarity = +1
-            ch_en=[True,True,False,False]
-            #set_simpleTrigger(thr_mV,0,False)
-            #set_simpleTrigger(thr_mV,1,False)
+            ch_en=trig_ch_en
             set_advancedTrigger(thr_mV,ch_en)
         init=True
 
 def run_daq(sub):
     set_timebase()
-    dataA=[]
-    dataB=[]
+    data=[]
     global ofile
     fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')
     for iev in range(nev):
-        adc2mVChAMax,adc2mVChBMax=get_single_event()
-        dataA.append(adc2mVChAMax)
-        dataB.append(adc2mVChBMax)
+        adc2mVData=get_single_event()
+        data.append(adc2mVData)
         time.sleep(1000*microsecond)
     
     # Stops the scope
