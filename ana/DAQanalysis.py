@@ -24,8 +24,8 @@ for j in range(NumberFiles):
     print(File)
     print(data)
     print(len(data[1]))
-    #plt.plot(data[0])
-    #plt.show()
+    plt.plot(data[0])
+    plt.show()
 	
     NumberTriggers = len(data)
     TriggerDepthA = []
