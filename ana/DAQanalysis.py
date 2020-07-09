@@ -168,44 +168,51 @@ print("Average Photon Number A = ",AllFileAveragePNA)
 print("Average Photon Number B = ",AllFileAveragePNB)
 #Histograms of integrated pulses
 fig = plt.figure()
-binsA = int((np.max(StoreIntegrationsA)-np.min(StoreIntegrationsA))/np.sqrt(len(StoreIntegrationsA)))
-print(binsA)
-plt.subplot(1,2,1)
-plt.hist(StoreIntegrationsA, bins=2*binsA)
+
+if(NumberChannels==2):
+    plt.subplot(1,2,1)
+
+plt.hist(StoreIntegrationsA, bins=50)
 plt.title("Integrated Charge A")
 plt.xlabel("Integrated Charge")
 plt.ylabel("Number")
 
-binsB = int((np.max(StoreIntegrationsB)-np.min(StoreIntegrationsB))/np.sqrt(len(StoreIntegrationsB)))
-print(binsB)
-plt.subplot(1,2,2)
-plt.hist(StoreIntegrationsB, bins = 2*binsB)
-plt.title("Integrated Charge B")
-plt.xlabel("Integrated Charge")
-plt.ylabel("Number")
+if(NumberChannels==1):
+   plt.show()
+
+if(NumberChannels==2):
+    plt.subplot(1,2,2)
+    plt.hist(StoreIntegrationsB, bins = 50)
+    plt.title("Integrated Charge B")
+    plt.xlabel("Integrated Charge")
+    plt.ylabel("Number")
+    plt.show()
+
 savestring = 'IntegratedHist_'+inputstring+'.pdf'
 plt.savefig(savestring, bbox_inches='tight')
-plt.show()
 
 figV = plt.figure()
-binsVA = int(abs(np.max(AllTriggerDepthsA)-np.min(AllTriggerDepthsA))/np.sqrt(len(AllTriggerDepthsA)))
-print(binsVA)
-plt.subplot(1,2,1)
-plt.hist(AllTriggerDepthsA,bins=binsA)
+if(NumberChannels==2):
+    plt.subplot(1,2,1)
+
+plt.hist(MinVoltageA,bins=50)
 plt.title("Peak Voltage Channel A")
 plt.xlabel("Peak Voltage (mV)")
 plt.ylabel("Number")
 
-binsVB = int(abs(np.max(AllTriggerDepthsB)-np.min(AllTriggerDepthsB))/np.sqrt(len(AllTriggerDepthsB)))
-print(binsVB)
-plt.subplot(1,2,2)
-plt.hist(AllTriggerDepthsB,bins=binsB)
-plt.title("Peak Voltage Channel B")
-plt.xlabel("Peak Voltage (mV)")
-plt.ylabel("Number")
+if(NumberChannels==1):
+    plt.show()
+
+if(NumberChannels==2):
+    plt.subplot(1,2,2)
+    plt.hist(MinVoltageB,bins=50)
+    plt.title("Peak Voltage Channel B")
+    plt.xlabel("Peak Voltage (mV)")
+    plt.ylabel("Number")
+    plt.show()
+
 savestringV = 'VoltageHist_'+inputstring+'.pdf' 
 plt.savefig(savestringV,bbox_inches='tight')
-plt.show()
 
 
 
