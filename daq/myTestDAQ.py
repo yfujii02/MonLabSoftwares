@@ -30,11 +30,15 @@ timebase=2 # 1.25GSPS
 windowSize=120
 startTime=preTriggerSamples
 stopTime=startTime+windowSize
+autoTriggerMilliseconds = 20000
 
 nev     =100
 thr_mV  =10
 runMode =0
 nperplot=10
+
+daqStartTime=0
+daqEndTime  =0
 
 # Create chandle and status ready for use
 status = {}
@@ -48,7 +52,7 @@ cmaxSamples = ctypes.c_int32(maxSamples)
 fname=''
 ofile={}
 dataToSave={}
-read_ch_en=[True,True,False,False]
+read_ch_en=[True,True,True,False]
 trig_ch_en=[True,True,False,False]
 
 #### Number of points for moving average
@@ -86,6 +90,7 @@ def open_scope():
 def channel_init(channel):
     global status
     global chandle
+    print('Init ch',channel)
     # Set up channel A
     # handle = chandle
     # channel = ps6000_CHANNEL_A = 0
@@ -156,7 +161,6 @@ def set_advancedTrigger(value,chan_en):
     print('threshold=',value,', (', threshold,' in COUNT)')
     nChannelProperties = 0
     auxOutputEnable = 0
-    autoTriggerMilliseconds = 20000
     ### Make an empty array of TRIGGER_CHANNEL_PROPERTIES with a length of "nUseCh"
     channelProperties=(ps.PS6000_TRIGGER_CHANNEL_PROPERTIES *nUseCh)()
     thre0 = min(threshold,maxthreshold)
@@ -206,12 +210,12 @@ def set_simpleTrigger(value,channel,rise): # value= threhosld in mV,channel=sour
     direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
     if rise==True:direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_RISING"]
     threshold  = mV2adc(value, chRange[channel], maxADC)
-    Set=setCh[channel]
+    Set='trigger'
     print('threshold=',value,', (', threshold,' in COUNT)')
-    status["trigger"] = ps.ps6000SetSimpleTrigger(chandle, 1, channel, threshold, direction, 0, 1000)
+    status["trigger"] = ps.ps6000SetSimpleTrigger(chandle, 1, channel, threshold, direction, 0, autoTriggerMilliseconds)
     assert_pico_ok(status[Set])
 
-def set_timebase():
+def set_timebase(base):
     # Gets timebase innfomation
     # Handle = chandle
     # Timebase = 2 = timebase
@@ -221,7 +225,7 @@ def set_timebase():
     # Segement index = 0
     global timebase
     global timeIntervalns
-    timebase = 2
+    timebase = base
     returnedMaxSamples = ctypes.c_int16()
     status["GetTimebase"] = ps.ps6000GetTimebase2(chandle, timebase, maxSamples, ctypes.byref(timeIntervalns), 1, ctypes.byref(returnedMaxSamples), 0)
     assert_pico_ok(status["GetTimebase"])
@@ -290,19 +294,21 @@ def get_single_event():
     ## Tosegementindex = 0
     #Times = (ctypes.c_int16*1)()
     #TimeUnits = ctypes.c_char()
-    #status["GetValuesTriggerTimeOffsetBulk"] = ps.ps6000GetValuesTriggerTimeOffsetBulk64(chandle, ctypes.byref(Times), ctypes.byref(TimeUnits), 0, 0)
-    #assert_pico_ok(status["GetValuesTriggerTimeOffsetBulk"])
+    #status["getValuesTriggerTimeOffsetBulk"] = ps.ps6000GetValuesTriggerTimeOffsetBulk64(chandle, ctypes.byref(Times), ctypes.byref(TimeUnits), 0, 0)
+    #assert_pico_ok(status["getValuesTriggerTimeOffsetBulk"])
 
     # Converts ADC from channel 'ch' to mV
-    adc2mVChMax=[[],[],[],[]]
-    nReadCh=0
+    #adc2mVChMax=[[],[],[],[]]
+    data=[[],[],[],[]]
     for ch in range(4):
-        if reach_ch_en[ch]==True:
-            tmpdata = adc2mV(bufferMax[ch], chRange[ch], maxADC)
-        else
-            tmpdata = -999
-        adc2mVChMax[ch]=tmpdata
-    return adc2mVChMax
+        if read_ch_en[ch]==True:
+            #adc2mVChMax[ch]=adc2mV(bufferMax[ch], chRange[ch], maxADC)
+            data[ch]=bufferMax[ch]
+        else:
+            #adc2mVChMax[ch]=0
+            data[ch]=0
+    #return adc2mVChMax
+    return data
 
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
@@ -311,10 +317,10 @@ def running_mean(x, N):
 def analyse_and_plot_data(data,figname):
     # Plots the data from channel A onto a graph
     global dataToSave
+
     base=np.array([])
     wfrms=np.array([])
     vmax=np.array([])
-    vmin=np.array([])
     charge=np.array([])
     fig = plt.figure(figsize=(15,8))
     gs  = gridspec.GridSpec(3,3)
@@ -323,29 +329,40 @@ def analyse_and_plot_data(data,figname):
     ax3 = plt.subplot(gs[2,0])
     ax4 = plt.subplot(gs[2,1])
     ax5 = plt.subplot(gs[2,2])
-    #timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
+
     timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
     startTime2 = startTime + numAve
     stopTime2  = stopTime  + numAve
-    for i in range(len(data)):
-        adc2mVChAMax=np.array(data[i])
-        avwf = running_mean(adc2mVChAMax[:],numAve)
-        baseline =avwf[:windowSize].mean()
-        chargeTmp=polarity*(avwf[startTime:stopTime].sum()-baseline*windowSize)
-        base  = np.append(base, baseline)                     # mean value of the baseline
-        wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
-        vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
-        vmin  = np.append(vmin, avwf[startTime2:stopTime2].min()-baseline) # minimum voltage within the time window
-        charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
-        if i==0:
-            #print('###',i)
-            dataToSave=np.transpose(adc2mVChAMax)
-        else:
-            #print('###',i)
-            dataToSave=np.vstack([dataToSave,np.transpose(adc2mVChAMax)])
-        if (i%nperplot)!=0:continue
-        ax1.plot(timeX, adc2mVChAMax[:]-baseline)
-        ax2.plot(timeX[numAve-1:], avwf-avwf.mean())
+    chStatus=read_ch_en+trig_ch_en
+    nEvents = len(data)
+    dataToSave=["BEGINHEADER",chStatus,daqStartTime,daqEndTime,nEvents]
+    waveforms={}
+    #### Convert data from digits to mV and perform the simple analysis
+    for i in range(nEvents):
+        #print('###',i)
+        for ch in range(4):
+            if read_ch_en[ch]==False: continue
+            adc2mVChMax=np.array(adc2mV(data[i][ch], chRange[ch], maxADC))
+            #avwf = polarity * running_mean(adc2mVChMax[:],numAve)
+            avwf = polarity * adc2mVChMax ### Skip averaging to speed up the daq..
+            baseline =avwf[:windowSize].mean()
+            chargeTmp=(avwf[startTime:stopTime].sum()-baseline*windowSize)
+            base  = np.append(base, baseline)                     # mean value of the baseline
+            wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
+            vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
+            charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
+            if len(waveforms)==0:
+                waveforms=np.transpose(adc2mVChMax)
+            else:
+                waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
+            if ch>0:continue #### plot only chA for now...
+            if (i%nperplot)!=0:continue
+            ax1.plot(timeX, adc2mVChMax[:]-baseline)
+            #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
+            ax2.plot(timeX, avwf-baseline)
+
+    dataToSave.append(waveforms)
+
     ax1.set_xlabel('Time (ns)')
     ax1.set_ylabel('Voltage (mV)')
     ax1.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
@@ -363,15 +380,10 @@ def analyse_and_plot_data(data,figname):
     ax3.text(+0.5,0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
     ax3.set_xlabel('rms (mv)')
      
-    ymax=0.05*float(nev)
     xbins=np.linspace(0,50,nbins)
-    if (polarity>0):
-        ax4.hist(vmax,bins=xbins)
-        ax4.text(+1.6,0.4*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
-    else: 
-        ax4.hist(-vmin,bins=xbins)
-        ax4.text(-3.0,0.4*ymax,r'$\mu=$'+f'{-vmin.mean():.2f}'+' mV',fontsize=12)
-    ax4.set_ylim(0.8,ymax)
+    ax4.hist(vmax,bins=xbins,density=True)
+    ax4.text(25,0.5*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
+    ax4.set_ylim(0,1)
     ax4.set_yscale('log')
     ax4.set_title('Max Peak value')
     ax4.set_xlabel('Max Voltage (mv)')
@@ -392,14 +404,25 @@ def analyse_and_plot_data(data,figname):
 def init_daq():
     global init
     global polarity
+    global trig_ch_en
+    if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
     if init==False:
         open_scope()
         for ch in range(4):
-            if read_ch_en[ch]==True:
+            if read_ch_en[ch]==True or trig_ch_en[ch]==True:
                 channel_init(ch)
         ### pedestal run
         if   runMode==0:
-            set_simpleTrigger(thr_mV,1,True)
+            trigCh=-1
+            for ch in range(4):
+                if trig_ch_en[ch]==True:
+                    trigCh=ch
+                    break 
+            if trigCh<0 or trigCh>3:
+                print("Illegal Trigger Channel: ",trigCh)
+                exit()
+            print('Trigger ch: ',trigCh)
+            set_simpleTrigger(thr_mV,trigCh,True)
         elif runMode==1: # negative polarity for SiPM signals
             polarity = -1
             ch_en=trig_ch_en
@@ -411,24 +434,32 @@ def init_daq():
         init=True
 
 def run_daq(sub):
-    set_timebase()
+    set_timebase(2) ## 1.25GSPS
     data=[]
     global ofile
+    global dataToSave
+    global daqStartTime
+    global daqEndTime
     fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')
+    daqStartTime=time.time()
     for iev in range(nev):
-        adc2mVData=get_single_event()
-        data.append(adc2mVData)
-        time.sleep(1000*microsecond)
-    
+        #adc2mVData=get_single_event()
+        #data.append(adc2mVData)
+        rawdata=get_single_event()
+        data.append(rawdata)
+        time.sleep(100*microsecond) ### Trigger rate is limited to 10kHz here.
+    daqEndTime=time.time()
+
+    print('Trigger rate = ', float(nev)/(daqEndTime-daqStartTime), ' Hz'), 
     # Stops the scope
     # Handle = chandle
     status["stop"] = ps.ps6000Stop(chandle)
     assert_pico_ok(status["stop"])
-    dataAB = np.concatenate((dataA,dataB),axis=0)
-    analyse_and_plot_data(dataAB,'figA.png')
+    dataToSave={} #Init
+    analyse_and_plot_data(data,'figA.png')
     np.save(ofile,dataToSave,allow_pickle=True)
     ofile.close
 
