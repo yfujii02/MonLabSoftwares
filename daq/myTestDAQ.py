@@ -15,7 +15,7 @@ import matplotlib.gridspec as gridspec
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 
 ############# Constant values
-chRange=[2,2,2,2] # ranges for each channel [50mV, 50mV,..]
+chRange=[3,3,3,3] # ranges for each channel [50mV, 50mV,..]
 setCh=['setChA','setChB','setChC','setChD']
 maxADC = ctypes.c_int16(32512)
 microsecond=1e-6
@@ -52,8 +52,8 @@ cmaxSamples = ctypes.c_int32(maxSamples)
 fname=''
 ofile={}
 dataToSave={}
-read_ch_en=[True,True,True,False]
-trig_ch_en=[True,True,False,False]
+read_ch_en=[True,True,True,True]
+trig_ch_en=[False,False,True,True]
 
 #### Number of points for moving average
 numAve=5
@@ -66,7 +66,7 @@ def set_params(var0,var1,var2,var3,var4,var5):
     global fname
     nev     = var0
     thr_mV  = var1
-    if (thr_mV>50):
+    if (thr_mV>500):
         for ch in range(4):
             chRange[ch]=7
     runMode = var2
@@ -154,7 +154,9 @@ def set_advancedTrigger(value,chan_en):
     threshold = mV2adc(value, ch_range, maxADC)
     if (ch_range==2):
         maxthreshold = mV2adc(50, ch_range, maxADC)
-    if (ch_range==7):
+    elif (ch_range==3):
+        maxthreshold = mV2adc(100, ch_range, maxADC)
+    elif (ch_range==7):
         maxthreshold = mV2adc(2000, ch_range, maxADC)
     #hysteresis = mV2adc((value * 0.02), ch_range, maxADC)
     hysteresis = 0

@@ -46,7 +46,8 @@ if(threshold<0):
 # Thresholds in mV
 # DAQ mode (pedestal or selftrigger)
 readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
-trigchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#trigchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel)
 myTestDAQ.init_daq()
 for i in range(num_subruns):
