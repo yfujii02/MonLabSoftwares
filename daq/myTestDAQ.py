@@ -128,6 +128,7 @@ def set_advancedTrigger(value,chan_en):
             else:
                 dirs[ch]   = ps.PS6000_THRESHOLD_DIRECTION["PS6000_BELOW"]
             nUseCh = nUseCh+1
+    print("TEMP: ",states)
     triggerConditions = ps.PS6000_TRIGGER_CONDITIONS(states[0],states[1],states[2],states[3],
                                                      ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
                                                      ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
@@ -158,7 +159,6 @@ def set_advancedTrigger(value,chan_en):
         maxthreshold = mV2adc(100, ch_range, maxADC)
     elif (ch_range==7):
         maxthreshold = mV2adc(2000, ch_range, maxADC)
-    #hysteresis = mV2adc((value * 0.02), ch_range, maxADC)
     hysteresis = 0
     print('threshold=',value,', (', threshold,' in COUNT)')
     nChannelProperties = 0
@@ -167,16 +167,15 @@ def set_advancedTrigger(value,chan_en):
     channelProperties=(ps.PS6000_TRIGGER_CHANNEL_PROPERTIES *nUseCh)()
     thre0 = min(threshold,maxthreshold)
     thre1 = max(threshold,maxthreshold)
+    print("Thre0/Thre1 : ",thre0,"/",thre1)
     for ch in range(4):
         if(chan_en[ch]==False):continue
         print('### ',ch)
         mode = ps.PS6000_THRESHOLD_MODE["PS6000_LEVEL"]
         #mode = ps.PS6000_THRESHOLD_MODE["PS6000_WINDOW"]
         channelProperties[nChannelProperties] = ps.PS6000_TRIGGER_CHANNEL_PROPERTIES(polarity*thre0,
-        #channelProperties[nChannelProperties] = ps.PS6000_TRIGGER_CHANNEL_PROPERTIES(threshold,
                                                                  hysteresis,
                                                                  polarity*thre1,
-                                                                 #-threshold,
                                                                  hysteresis,
                                                                  ch, mode)
         nChannelProperties+=1
@@ -197,8 +196,8 @@ def set_advancedTrigger(value,chan_en):
         direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_BELOW"]
     #upper = 30 # x(time interval) (0.8ns now)
     #lower = upper
-    upper = 220 # x(time interval) (0.8ns now)
-    lower = 30
+    upper = 20 # x(time interval) (0.8ns now)
+    lower = 5
     ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_GREATER_THAN"]
     #ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_IN_RANGE"]
     #ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_NONE"]
@@ -357,7 +356,8 @@ def analyse_and_plot_data(data,figname):
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            if ch>0:continue #### plot only chA for now...
+            #if ch>0:continue #### plot only chA for now...
+            if ch!=1:continue #### plot only chB for now...
             if (i%nperplot)!=0:continue
             ax1.plot(timeX, adc2mVChMax[:]-baseline)
             #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
@@ -434,6 +434,7 @@ def init_daq():
             ch_en=trig_ch_en
             set_advancedTrigger(thr_mV,ch_en)
         init=True
+    print("Polarity = ",polarity)
 
 def run_daq(sub):
     set_timebase(2) ## 1.25GSPS
