@@ -2,3 +2,4 @@ data/
 picosdk-c-examples/
 */__pycache__
 *.swp
+ana/*.pdf
