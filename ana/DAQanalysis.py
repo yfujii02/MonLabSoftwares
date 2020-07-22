@@ -14,17 +14,19 @@ import glob
 
 args = sys.argv
 #print(len(args))
-ArgumentNumber = 5
+ArgumentNumber = 7
 
 if(args[1]=='-help'):
     print('Use this file to analyse silicon photomultiplier voltage waveforms - will analyse all files within ~/work/pico/data/analysisfiles, outputing histograms for integrated charge and minimum voltage as well printing to console the average minimum voltage and number of photons for each channel. The arguments should be as follows:')
     print(" ")
-    print('python3 DAQanalysis.py [1] [2] [3] [4]')
+    print('python3 DAQanalysis.py [1] [2] [3] [4] [5] [6]')
     print(" ")
     print('[1] = inputstring => use this to distinguish saved histogram filenames')
     print('[2] = number of channels in waveform data')
     print('[3] = waveform input data structure format => 1: [A0, A1, A2 .... D(N-1), D(N)] 2: [A0, B0, C0, D0, A1, B1, .... ,BN, CN, DN]')
     print('[4] = FFT option => 0: No, 1: Yes')
+    print('[5] = Print Option => 0: No, 1:Yes')
+    print('[6] = String for files to analyse (e.g. for all files analysis_run_1.npy, analysis_run_2.npy,... => input analysis_run')
     print(" ")
     sys.exit()
 
@@ -51,9 +53,11 @@ FFTOn = int(args[4])
 if(FFTOn<0 or FFTOn>1):
    print('FFT option invalid!')
    print('Use only Yes (1) or No(0)')
-
+PrintFlag=int(args[5])
+AnalysisFilesString="../data/"+args[6]+"*.npy"
 #Locate Files
-AnalysisFiles = glob.glob("../data/analysisfiles/*.npy")
+#AnalysisFiles = glob.glob("../data/analysisfiles/*.npy")
+AnalysisFiles = glob.glob(AnalysisFilesString)
 print(AnalysisFiles)
 NumberFiles = len(AnalysisFiles)
 print(NumberFiles)
@@ -86,7 +90,9 @@ PhotonCalibration = 25.0*2e-9 #two SiPM vs intial tests (~25 integrated charge 1
 #Analyse each file
 for j in range(NumberFiles):
     File = AnalysisFiles[j]
-    rawdata = np.array(np.load(File))
+    filedata = np.array(np.load(File,allow_pickle=True))
+    rawdata=filedata[6]
+    print("Reading file: ",File) 
     #print(data.shape)
     #print(File)
     #print(data)
@@ -117,6 +123,9 @@ for j in range(NumberFiles):
     WaveformsPerChannel = NumberTriggers/NumberChannels
     print("Number of waveforms per channel = ",WaveformsPerChannel)
     ChannelCounter = 1
+    #print(rawdata.shape)
+    #print(rawdata)
+
 
     #Analyse each waveform in the file
     for i in range(NumberTriggers):
@@ -153,9 +162,13 @@ for j in range(NumberFiles):
                    break
              #print("AveCount", AveCounter)
              #print("NoAveCount", NoAveCounter)
-         print("################################") 
-         print("Found start index = ", StartIndex)
-         print("Found end index = ", EndIndex)       
+         if(PrintFlag==1): 
+             print("################################") 
+             print("Found start index = ", StartIndex)
+             print("Found end index = ", EndIndex)       
+    
+
+
          if(FFTOn==1):
             fftV = fftpack.fft(data)
             plt.plot(fftT, 2.0/Samples * np.abs(fftV[0:Samples//2]))
@@ -175,11 +188,15 @@ for j in range(NumberFiles):
          #plt.plot((data[0])[StartIndex:EndIndex])
          #plt.show()
          #Numerical Integration using Simpsons Rule 
-         Area = -simps((data)[StartIndex:EndIndex],TimeArray[StartIndex:EndIndex])
-         print("Intergrated Pulse: ",Area)
-         print("Min Voltage = ",np.min(data))
+         if(StartIndex>=EndIndex): Area = 0.0
+         else: Area = -simps((data)[StartIndex:EndIndex],TimeArray[StartIndex:EndIndex])
          PN = int(Area/PhotonCalibration)
-         print("Number of photons = ", PN)
+         
+         if(PrintFlag==1):
+             print("Intergrated Pulse: ",Area)
+             print("Min Voltage = ",np.min(data))
+             print("Number of photons = ", PN)
+         
          #if(PN<10):
          #  plt.plot((data[i])[StartIndex:EndIndex])
          #  plt.show() 
@@ -238,7 +255,7 @@ for j in range(NumberFiles):
                StoreIntegrationsD.append(Area)
                MinVoltageD.append(np.min(data))
                ChannelCounter=1
-         print("################################")
+         if(PrintFlag==1): print("################################")
     
     AverageTriggerDepthA = np.average(TriggerDepthA)
     AveragePNA = np.average(PhotonNumberA)
@@ -281,6 +298,8 @@ if(NumberChannels==4):
     print("Average minimum voltage in Channel D = %.2f mV" %(AllFileAverageDepthD))
     print("Average Photon Number D = ",AllFileAveragePND)
 
+
+NumBins = 100
 #Histograms of integrated pulses
 fig = plt.figure()
 
@@ -289,7 +308,7 @@ if(NumberChannels==2):
 elif(NumberChannels>2):
     plt.subplot(2,2,1)
 
-plt.hist(StoreIntegrationsA, bins=50)
+plt.hist(StoreIntegrationsA, bins=NumBins)
 plt.title("Integrated Charge A")
 plt.xlabel("Integrated Charge")
 plt.ylabel("Number")
@@ -305,7 +324,7 @@ elif(NumberChannels>2):
     plt.subplot(2,2,2)
 
 if(NumberChannels>=2):
-    plt.hist(StoreIntegrationsB, bins = 50)
+    plt.hist(StoreIntegrationsB, bins = NumBins)
     plt.title("Integrated Charge B")
     plt.xlabel("Integrated Charge")
     plt.ylabel("Number")
@@ -318,7 +337,7 @@ if(NumberChannels==2):
 
 if(NumberChannels>2):
     plt.subplot(2,2,3)
-    plt.hist(StoreIntegrationsC, bins=50)
+    plt.hist(StoreIntegrationsC, bins=NumBins)
     plt.title("Integrated Charge C")
     plt.xlabel("Integrated Charge")
     plt.ylabel("Number")
@@ -329,7 +348,7 @@ if(NumberChannels==3):
 
 if(NumberChannels==4):
     plt.subplot(2,2,4)
-    plt.hist(StoreIntegrationsD, bins=50)
+    plt.hist(StoreIntegrationsD, bins=NumBins)
     plt.title("Integrated Charge D")
     plt.xlabel("Integrated Charge")
     plt.ylabel("Number")
@@ -345,7 +364,7 @@ if(NumberChannels==2):
 elif(NumberChannels>2):
     plt.subplot(2,2,1)
 
-plt.hist(MinVoltageA,bins=50)
+plt.hist(MinVoltageA,bins=NumBins)
 plt.title("Peak Voltage Channel A")
 plt.xlabel("Peak Voltage (mV)")
 plt.ylabel("Number")
@@ -361,7 +380,7 @@ elif(NumberChannels>2):
     plt.subplot(2,2,2)
 
 if(NumberChannels>=2):
-    plt.hist(MinVoltageB, bins = 50)
+    plt.hist(MinVoltageB, bins = NumBins)
     plt.title("Peak Voltage B")
     plt.xlabel("Peak Voltage (mV)")
     plt.ylabel("Number")
@@ -374,7 +393,7 @@ if(NumberChannels==2):
 
 if(NumberChannels>2):
     plt.subplot(2,2,3)
-    plt.hist(MinVoltageC, bins=50)
+    plt.hist(MinVoltageC, bins=NumBins)
     plt.title("Peak Voltage C")
     plt.xlabel("Peak Voltage (mV)")
     plt.ylabel("Number")
@@ -385,7 +404,7 @@ if(NumberChannels==3):
 
 if(NumberChannels==4):
     plt.subplot(2,2,4)
-    plt.hist(MinVoltageD, bins=50)
+    plt.hist(MinVoltageD, bins=NumBins)
     plt.title("Peak Voltage D")
     plt.xlabel("Peak Voltage (mV)")
     plt.ylabel("Number")

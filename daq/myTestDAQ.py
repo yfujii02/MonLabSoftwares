@@ -15,7 +15,17 @@ import matplotlib.gridspec as gridspec
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 
 ############# Constant values
-chRange=[3,3,3,3] # ranges for each channel [50mV, 50mV,..]
+chRange=[4,4,3,3] # ranges for each channel [50mV, 50mV,..]
+# Voltage Ranges
+# 2 = 50 mV
+# 3 = 100 mV 
+# 4 = 200 mV
+# 5 = 500 mV
+# 6 = 1 V
+# 7 = 2 V
+# 8 = 5 V 
+# 9 = 10 V 
+# 10 = 20 V
 setCh=['setChA','setChB','setChC','setChD']
 maxADC = ctypes.c_int16(32512)
 microsecond=1e-6
@@ -151,26 +161,26 @@ def set_advancedTrigger(value,chan_en):
     # Direction = ps6000_Rising
     # Delay = 0
     # autoTrigger_ms = 1000
-    ch_range=chRange[0]
-    threshold = mV2adc(value, ch_range, maxADC)
-    if (ch_range==2):
-        maxthreshold = mV2adc(50, ch_range, maxADC)
-    elif (ch_range==3):
-        maxthreshold = mV2adc(100, ch_range, maxADC)
-    elif (ch_range==7):
-        maxthreshold = mV2adc(2000, ch_range, maxADC)
-    hysteresis = 0
-    print('threshold=',value,', (', threshold,' in COUNT)')
     nChannelProperties = 0
     auxOutputEnable = 0
     ### Make an empty array of TRIGGER_CHANNEL_PROPERTIES with a length of "nUseCh"
     channelProperties=(ps.PS6000_TRIGGER_CHANNEL_PROPERTIES *nUseCh)()
-    thre0 = min(threshold,maxthreshold)
-    thre1 = max(threshold,maxthreshold)
-    print("Thre0/Thre1 : ",thre0,"/",thre1)
+    hysteresis = 0
     for ch in range(4):
         if(chan_en[ch]==False):continue
         print('### ',ch)
+        ch_range=chRange[ch]
+        threshold = mV2adc(value, ch_range, maxADC)
+        if (ch_range==2):
+            maxthreshold = mV2adc(50, ch_range, maxADC)
+        elif (ch_range==3):
+            maxthreshold = mV2adc(100, ch_range, maxADC)
+        elif (ch_range==7):
+            maxthreshold = mV2adc(2000, ch_range, maxADC)
+        print('threshold=',value,', (', threshold,' in COUNT)')
+        thre0 = min(threshold,maxthreshold)
+        thre1 = max(threshold,maxthreshold)
+        print("Thre0/Thre1 : ",thre0,"/",thre1)
         mode = ps.PS6000_THRESHOLD_MODE["PS6000_LEVEL"]
         #mode = ps.PS6000_THRESHOLD_MODE["PS6000_WINDOW"]
         channelProperties[nChannelProperties] = ps.PS6000_TRIGGER_CHANNEL_PROPERTIES(polarity*thre0,
@@ -356,8 +366,8 @@ def analyse_and_plot_data(data,figname):
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            #if ch>0:continue #### plot only chA for now...
-            if ch!=1:continue #### plot only chB for now...
+            if ch>0:continue #### plot only chA for now...
+            #if ch!=1:continue #### plot only chB for now...
             if (i%nperplot)!=0:continue
             ax1.plot(timeX, adc2mVChMax[:]-baseline)
             #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
