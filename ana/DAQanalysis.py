@@ -80,13 +80,23 @@ StoreIntegrationsD=[]
 MinVoltageC=[]
 MinVoltageD=[]
 
+
+#All Data Averages
+ChAAve=[]
+ChBAve=[]
+ChCAve=[]
+ChDAve=[]
+
 #Set parameters
 Samples = 508 #512 for pre cumsum
 dt = 0.8e-9
 TimeArray = np.linspace(0.0,Samples*dt,Samples)
 fftT = np.linspace(0.0, 1.0/(2.0*dt), Samples//2)
 PhotonCalibration = 25.0*2e-9 #two SiPM vs intial tests (~25 integrated charge 1 p,e,)
-
+ChannelPolarity = [-1,1,-1,-1]
+SignalCounter=0
+NoiseCounter=0
+TotalEvents = 0
 #Analyse each file
 for j in range(NumberFiles):
     File = AnalysisFiles[j]
@@ -102,8 +112,8 @@ for j in range(NumberFiles):
     #movave[5:]=movave[5:]-movave[:-5]
     #data = (movave[5:]-movave[:-5])/float(5)
     #print(data)
-#    figcheck = plt.figure()
-#    plt.subplot(1,2,1)
+ #figcheck = plt.figure()
+# plt.subplot(1,2,1)
 #    plt.plot(rawdata)
 #    plt.subplot(1,2,2)
 #    plt.plot(data)
@@ -111,6 +121,7 @@ for j in range(NumberFiles):
 
     #Allocate File Arrays/Parameters
     NumberTriggers = len(rawdata)
+    TotalEvents+=NumberTriggers
     TriggerDepthA = []
     TriggerDepthB = []
     PhotonNumberA = []
@@ -122,46 +133,116 @@ for j in range(NumberFiles):
     print("Recorded Waveforms = ",NumberTriggers)
     WaveformsPerChannel = NumberTriggers/NumberChannels
     print("Number of waveforms per channel = ",WaveformsPerChannel)
-    ChannelCounter = 1
+    #ChannelCounter = 1
     #print(rawdata.shape)
     #print(rawdata)
 
+    ChannelCounter=0
+    NoiseThresholdAmp = 10
+    NoiseThreshold = 2
 
+    #Determine average channel value before analysis
+    NoiseA=0
+    NoiseB=0
+    NoiseC=0
+    NoiseD=0
+    for i in range(NumberTriggers):
+         data=rawdata[i]
+         noiselevel=np.average(data)
+         ChannelCounter+=1
+         if(ChannelCounter>NumberChannels):ChannelCounter=1
+         if(ChannelCounter==1): NoiseA+=noiselevel
+         if(ChannelCounter==2): NoiseB+=noiselevel
+         if(ChannelCounter==3): NoiseC+=noiselevel
+         if(ChannelCounter==4): NoiseD+=noiselevel
+
+
+    ThreshA = NoiseA/NumberTriggers
+    ThreshB = NoiseB/NumberTriggers
+    ThreshC = NoiseC/NumberTriggers
+    ThreshD = NoiseD/NumberTriggers
+    print("Channel A Threshold = ",ThreshA)
+    print("Channel B Threshold = ",ThreshB)
+    print("Channel C Threshold = ",ThreshC)
+    print("Channel D Threshold = ",ThreshD)
+    ChannelCounter=0
+    StartIndex=0
+    EndIndex=0
     #Analyse each waveform in the file
     for i in range(NumberTriggers):
          #Find Pulse
          moveavefilt=np.cumsum(np.insert(rawdata[i],0,0))
          data=(moveavefilt[5:]-moveavefilt[:-5])/float(5)
+         ChannelCounter+=1
+         #if(ChannelCounter==2):
+         #   plt.plot(data)
+         #   plt.show()
+         #if(ChannelCounter==4): ChannelCounter=0
          MoveAveN = 5
          AveCounter = 0
          NoAveCounter = 0
          PulseFlag = 0
-         ThreshAve = -0.9
-         for k in range(len(data)-MoveAveN):
-             MoveAverage = (data)[k:k+MoveAveN]
-             MoveAverageVal =  np.average(MoveAverage)
-             #print("Index: ",k)
-             #print("5 point Ave = ",MoveAverageVal) 
-             if(PulseFlag==0 and MoveAverageVal<=ThreshAve): AveCounter+=1
-             else: AveCounter=0
+         ThreshAve = 0.9
 
-             if(AveCounter>5):
-                 StartIndex = k-5
-                 PulseFlag = 1
-             if(PulseFlag==1 and MoveAverageVal>ThreshAve): NoAveCounter+=1 
-             else: NoAveCounter = 0
+         if(ChannelCounter==1):ThreshAve = abs(ThreshA)
+         elif(ChannelCounter==2):ThreshAve = abs(ThreshB)
+         elif(ChannelCounter==3):ThreshAve = abs(ThreshC)
+         elif(ChannelCounter==4):ThreshAve = abs(ThreshD)
+         
+         if(ChannelPolarity[ChannelCounter-1]==-1):
+             for k in range(len(data)-MoveAveN):
+                 MoveAverage = (data)[k:k+MoveAveN]
+                 MoveAverageVal =  np.average(MoveAverage)
+             	 #print("Index: ",k)
+             	 #print("5 point Ave = ",MoveAverageVal) 
+             
+                 if(PulseFlag==0 and MoveAverageVal<=-ThreshAve): AveCounter+=1
+                 else: AveCounter=0
+
+                 if(AveCounter>5):
+                     StartIndex = k-5
+                     PulseFlag = 1
+                 if(PulseFlag==1 and MoveAverageVal>-ThreshAve): NoAveCounter+=1 
+                 else: NoAveCounter = 0
        
-             if(NoAveCounter>5):
-                 EndIndex = k+5
-                 if(np.min((data)[StartIndex:EndIndex])!=np.min(data)):
-                   PulseFlag=0
-                   AveCounter=0
-                   NoAveCounter=0
-                 else:
-                   PulseFlag = 0
-                   break
-             #print("AveCount", AveCounter)
-             #print("NoAveCount", NoAveCounter)
+                 if(NoAveCounter>5):
+                     EndIndex = k+5
+                     if(np.min((data)[StartIndex:EndIndex])!=np.min(data)):
+                        PulseFlag=0
+                        AveCounter=0
+                        NoAveCounter=0
+                     else:
+                        PulseFlag = 0
+                        break
+                #print("AveCount", AveCounter)
+                #print("NoAveCount", NoAveCounter)
+         if(ChannelPolarity[ChannelCounter-1]==1):
+             for k in range(len(data)-MoveAveN):
+                 MoveAverage = (data)[k:k+MoveAveN]
+                 MoveAverageVal =  np.average(MoveAverage)
+             	 #print("Index: ",k)
+             	 #print("5 point Ave = ",MoveAverageVal) 
+                 if(PulseFlag==0 and MoveAverageVal>=ThreshAve):AveCounter+=1
+                 else:AveCounter=0
+
+                 if(AveCounter>5):
+                     StartIndex = k-5
+                     PulseFlag = 1
+                 if(PulseFlag==1 and MoveAverageVal<ThreshAve): NoAveCounter+=1 
+                 else: NoAveCounter = 0
+       
+                 if(NoAveCounter>5):
+                     EndIndex = k+5
+                     if(np.max((data)[StartIndex:EndIndex])!=np.max(data)):
+                        PulseFlag=0
+                        AveCounter=0
+                        NoAveCounter=0
+                     else:
+                        PulseFlag = 0
+                        break
+                 #print("AveCount", AveCounter)
+                 #print("NoAveCount", NoAveCounter)
+        
          if(PrintFlag==1): 
              print("################################") 
              print("Found start index = ", StartIndex)
@@ -188,7 +269,9 @@ for j in range(NumberFiles):
          #plt.plot((data[0])[StartIndex:EndIndex])
          #plt.show()
          #Numerical Integration using Simpsons Rule 
-         if(StartIndex>=EndIndex): Area = 0.0
+         if(StartIndex>=EndIndex or StartIndex==0 or EndIndex==0): 
+             Area = 0.0
+             NoiseCounter+=1
          else: Area = -simps((data)[StartIndex:EndIndex],TimeArray[StartIndex:EndIndex])
          PN = int(Area/PhotonCalibration)
          
@@ -230,53 +313,69 @@ for j in range(NumberFiles):
                TriggerDepthA.append(np.min(data))
                PhotonNumberA.append(PN)
                StoreIntegrationsA.append(Area)
-               MinVoltageA.append(np.min(data))
-               if(NumberChannels>1): ChannelCounter=2
+               if(np.min(data)<=-NoiseThresholdAmp): MinVoltageA.append(np.min(data))
+               ChAAve.append(np.average(data))
+               #if(NumberChannels>1): ChannelCounter=2
 
             elif(ChannelCounter==2):
                TriggerDepthB.append(np.min(data))
                PhotonNumberB.append(PN)
                StoreIntegrationsB.append(Area)
-               MinVoltageB.append(np.min(data))
-               if(NumberChannels==2): ChannelCounter=1
-               elif(NumberChannels>2): ChannelCounter=3
+               #MinVoltageB.append(np.min(data))
+               if(np.max(data)>=NoiseThresholdAmp): MinVoltageB.append(np.max(data))
+               ChAAve.append(np.average(data))
+               ChBAve.append(np.average(data))
+              # if(NumberChannels==2): ChannelCounter=1
+              # elif(NumberChannels>2): ChannelCounter=3
 
             elif(ChannelCounter==3):
                TriggerDepthC.append(np.min(data))
                PhotonNumberC.append(PN)
                StoreIntegrationsC.append(Area)
-               MinVoltageC.append(np.min(data))
-               if(NumberChannels==3): ChannelCounter=1
-               elif(NumberChannels==4): ChannelCounter=4
+               #MinVoltageC.append(np.min(data))
+               if(np.min(data)<=-NoiseThreshold): MinVoltageC.append(np.min(data))
+               ChAAve.append(np.average(data))
+               ChCAve.append(np.average(data))
+              # if(NumberChannels==3): ChannelCounter=1
+              # elif(NumberChannels==4): ChannelCounter=4
          
             elif(ChannelCounter==4):
                TriggerDepthD.append(np.min(data))
                PhotonNumberD.append(PN)
                StoreIntegrationsD.append(Area)
-               MinVoltageD.append(np.min(data))
-               ChannelCounter=1
+               #MinVoltageD.append(np.min(data))
+               if(np.min(data)<=-NoiseThreshold): MinVoltageD.append(np.min(data))
+               ChAAve.append(np.average(data))
+              # ChannelCounter=1
+               ChDAve.append(np.average(data))
+       
          if(PrintFlag==1): print("################################")
     
+         if(ChannelCounter==NumberChannels):ChannelCounter=0
+ 
+
     AverageTriggerDepthA = np.average(TriggerDepthA)
     AveragePNA = np.average(PhotonNumberA)
     AllTriggerDepthsA.append(AverageTriggerDepthA)
     AllPNA.append(AveragePNA)
-    
     if(NumberChannels>=2):    
        AverageTriggerDepthB = np.average(TriggerDepthB)
        AveragePNB = np.average(PhotonNumberB)
        AllTriggerDepthsB.append(AverageTriggerDepthB)
        AllPNB.append(AveragePNB)
+    
     if(NumberChannels>2):    
        AverageTriggerDepthC = np.average(TriggerDepthC)
        AveragePNC = np.average(PhotonNumberC)
        AllTriggerDepthsC.append(AverageTriggerDepthC)
        AllPNC.append(AveragePNC)
+    
     if(NumberChannels==4):    
        AverageTriggerDepthD = np.average(TriggerDepthD)
        AveragePND = np.average(PhotonNumberD)
        AllTriggerDepthsD.append(AverageTriggerDepthD)
        AllPND.append(AveragePND)
+    
 
 AllFileAverageDepthA = np.average(AllTriggerDepthsA)
 AllFileAveragePNA = np.average(AllPNA)
@@ -298,10 +397,10 @@ if(NumberChannels==4):
     print("Average minimum voltage in Channel D = %.2f mV" %(AllFileAverageDepthD))
     print("Average Photon Number D = ",AllFileAveragePND)
 
-
+print("Noise count: %d / %d " %(NoiseCounter,TotalEvents))
 NumBins = 100
 #Histograms of integrated pulses
-fig = plt.figure()
+fig = plt.figure(1)
 
 if(NumberChannels==2):
     plt.subplot(1,2,1)
@@ -357,7 +456,7 @@ if(NumberChannels==4):
     plt.savefig(savestring, bbox_inches='tight')
 
 #Voltage Histograms
-figV = plt.figure()
+figV = plt.figure(2)
 
 if(NumberChannels==2):
     plt.subplot(1,2,1)
@@ -410,4 +509,60 @@ if(NumberChannels==4):
     plt.ylabel("Number")
     plt.show()
     savestring = 'VoltageHist_'+inputstring+'.pdf'
+    plt.savefig(savestring, bbox_inches='tight')
+
+#Histograms of average voltage
+figAv = plt.figure(3)
+
+if(NumberChannels==2):
+    plt.subplot(1,2,1)
+elif(NumberChannels>2):
+    plt.subplot(2,2,1)
+
+plt.hist(ChAAve, bins=NumBins)
+plt.title("Average Voltage A")
+plt.xlabel("Voltage (mV)")
+plt.ylabel("Number")
+
+if(NumberChannels==1):
+   plt.show()
+   savestring = 'AvVoltHist_'+inputstring+'.pdf'
+   plt.savefig(savestring, bbox_inches='tight')
+
+if(NumberChannels==2):
+    plt.subplot(1,2,2)
+elif(NumberChannels>2):
+    plt.subplot(2,2,2)
+
+if(NumberChannels>=2):
+    plt.hist(ChBAve, bins = NumBins)
+    plt.title("Average Voltage B")
+    plt.xlabel("Voltage (mV)")
+    plt.ylabel("Number")
+
+if(NumberChannels==2):
+    plt.show()
+    savestring = 'AvVoltHist_'+inputstring+'.pdf'
+    plt.savefig(savestring, bbox_inches='tight')
+
+
+if(NumberChannels>2):
+    plt.subplot(2,2,3)
+    plt.hist(ChCAve, bins=NumBins)
+    plt.title("Average Voltage C")
+    plt.xlabel("Voltage (mV)")
+    plt.ylabel("Number")
+if(NumberChannels==3):
+    plt.show()
+    savestring = 'AveVoltHist_'+inputstring+'.pdf'
+    plt.savefig(savestring, bbox_inches='tight')
+
+if(NumberChannels==4):
+    plt.subplot(2,2,4)
+    plt.hist(ChDAve, bins=NumBins)
+    plt.title("Average Voltage D")
+    plt.xlabel("Voltage (mV)")
+    plt.ylabel("Number")
+    plt.show()
+    savestring = 'IntegratedHist_'+inputstring+'.pdf'
     plt.savefig(savestring, bbox_inches='tight')
