@@ -11,6 +11,7 @@ from scipy.integrate import simps
 from scipy import fftpack
 import sys
 import glob
+from scipy.signal import chirp, find_peaks, peak_widths
 
 args = sys.argv
 #print(len(args))
@@ -87,6 +88,28 @@ ChBAve=[]
 ChCAve=[]
 ChDAve=[]
 
+#Integrals of each channel
+IntA=[]
+IntASig=[]
+IntB=[]
+IntC=[]
+IntD=[]
+IntBSig=[]
+IntCSig=[]
+IntDSig=[]
+
+#Channel signal counters
+CounterA = 0
+CounterB = 0
+CounterC = 0
+CounterD = 0
+CounterAp = 0
+CounterBp = 0
+CounterCp = 0
+CounterDp = 0
+#Peak Indices
+StartIndices = []
+StopIndices = []
 #Set parameters
 Samples = 508 #512 for pre cumsum
 dt = 0.8e-9
@@ -168,6 +191,7 @@ for j in range(NumberFiles):
     ChannelCounter=0
     StartIndex=0
     EndIndex=0
+    IntegralThresh = 1e-7
     #Analyse each waveform in the file
     for i in range(NumberTriggers):
          #Find Pulse
@@ -188,7 +212,61 @@ for j in range(NumberFiles):
          elif(ChannelCounter==2):ThreshAve = abs(ThreshB)
          elif(ChannelCounter==3):ThreshAve = abs(ThreshC)
          elif(ChannelCounter==4):ThreshAve = abs(ThreshD)
-         
+         yes = 1
+         if(yes==1):
+          # dV = diff(data)
+          # dT = difff(TimeArray)
+          # dVdT=float(dV/dT)
+           IntegrateWaveform = simps(data,TimeArray)
+           print("Integral: ",IntegrateWaveform)
+           if(ChannelCounter==1): 
+                IntA.append(IntegrateWaveform)
+                IntASig.append(IntegrateWaveform)
+                fl = 0
+                if(IntegrateWaveform>IntegralThresh):
+                    CounterA+=1
+                    fl=1
+                #else:
+                   # plt.plot(data)
+                   # plt.title("Int not above")
+                   # plt.show()
+                if(np.min(data)<-10.0):
+                    CounterAp+=1
+                elif(fl==1):
+                    plt.plot(data)
+                    plt.title("Int above thresh but Peak Not")
+                    plt.show()
+                    
+           elif(ChannelCounter==2):
+                IntB.append(IntegrateWaveform)
+                IntBSig.append(IntegrateWaveform)
+                if(IntegrateWaveform>IntegralThresh): CounterB+=1
+                if(np.max(data)>10.0): CounterBp+=1
+           elif(ChannelCounter==3):
+                IntC.append(IntegrateWaveform)
+                IntCSig.append(IntegrateWaveform)
+                if(IntegrateWaveform>IntegralThresh): CounterC+=1
+                if(np.min(data)<-6.0): CounterCp+=1
+           elif(ChannelCounter==4):
+                IntD.append(IntegrateWaveform)
+                IntDSig.append(IntegrateWaveform)
+                if(IntegrateWaveform>IntegralThresh): CounterD+=1
+                if(np.min(data)<-6.0): CounterDp+=1
+           
+           peaks,_=find_peaks(data)
+           results_half = peak_widths(data, peaks, rel_height=0.5)
+           results_full = peak_widths(data, peaks, rel_height=1)
+           print("Max Peak: ",np.max(data[peaks]))
+           print("Min Peak: ",np.min(data[peaks]))
+           print("Max Width: ",0.8*np.max(results_full))
+           print("Max Half  Width: ", 0.8*np.max(results_half)) 
+           #plt.plot(data)
+           #plt.plot(peaks,data[peaks])
+           #plt.hlines(*results_half[1:], color="C2")
+           #plt.hlines(*results_full[1:], color="C3")           
+          # plt.show()
+           
+ 
          if(ChannelPolarity[ChannelCounter-1]==-1):
              for k in range(len(data)-MoveAveN):
                  MoveAverage = (data)[k:k+MoveAveN]
@@ -247,7 +325,9 @@ for j in range(NumberFiles):
              print("################################") 
              print("Found start index = ", StartIndex)
              print("Found end index = ", EndIndex)       
-    
+        
+         StopIndices.append(EndIndex)
+         StartIndices.append(StartIndex)
 
 
          if(FFTOn==1):
@@ -399,6 +479,17 @@ if(NumberChannels==4):
 
 print("Noise count: %d / %d " %(NoiseCounter,TotalEvents))
 NumBins = 100
+
+print("Ch A Int Count: ", CounterA)
+print("Ch A Peak Count: ",CounterAp)
+print("Ch B Int Count: ", CounterB)
+print("Ch B Peak Count: ",CounterBp)
+print("Ch C Int Count: ", CounterC)
+print("Ch C Peak Count: ",CounterCp)
+print("Ch D Int Count: ", CounterD)
+print("Ch D Peak Count: ",CounterDp)
+
+
 #Histograms of integrated pulses
 fig = plt.figure(1)
 
@@ -566,3 +657,46 @@ if(NumberChannels==4):
     plt.show()
     savestring = 'IntegratedHist_'+inputstring+'.pdf'
     plt.savefig(savestring, bbox_inches='tight')
+
+#Plot Entire Waveform Integral
+figInt = plt.figure(4) 
+plt.subplot(2,2,1)
+plt.hist(IntA, bins = NumBins)
+plt.title("Integral of Waveform Ch A")
+plt.xlabel("Integral (mV s)")
+plt.ylabel("Number")
+plt.show()
+
+plt.subplot(2,2,2)
+plt.hist(IntB, bins = NumBins)
+plt.title("Integral of Waveform Ch B")
+plt.xlabel("Integral (mV s)")
+plt.ylabel("Number")
+plt.show()
+
+plt.subplot(2,2,3)
+plt.hist(IntC, bins = NumBins)
+plt.title("Integral of Waveform Ch C")
+plt.xlabel("Integral (mV s)")
+plt.ylabel("Number")
+plt.show()
+
+plt.subplot(2,2,4)
+plt.hist(IntD, bins = NumBins)
+plt.title("Integral of Waveform Ch D")
+plt.xlabel("Integral (mV s)")
+plt.ylabel("Number")
+plt.show()
+
+figStart = plt.figure(5) 
+plt.hist(StartIndices, bins = NumBins)
+plt.title("Peak Start Indices All Channels")
+plt.xlabel("Start  Index")
+plt.ylabel("Number")
+plt.show()
+figStop = plt.figure(6) 
+plt.hist(StopIndices, bins = NumBins)
+plt.title("Peak Stop Indices All Channels")
+plt.xlabel("Stop  Index")
+plt.ylabel("Number")
+plt.show()
