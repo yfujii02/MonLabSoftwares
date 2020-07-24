@@ -50,9 +50,22 @@ readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if
 trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel)
 myTestDAQ.init_daq()
+
 for i in range(num_subruns):
     print('Sub run: ',i,'/',num_subruns)
+    Start = time.time()
     myTestDAQ.run_daq(i)
+    End = time.time()
+    eTime = End-Start
+    print("RunDaq Time = ", eTime) 
+    TimeOutFlag=myTestDAQ.getTimeOutFlag()
+    if(TimeOutFlag==True):
+        print("Resetting DAQ...") 
+        TimeOutFlag==False
+        myTestDAQ.close()
+        time.sleep(1)
+        myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel)
+        myTestDAQ.init_daq()
     time.sleep(1)
 myTestDAQ.close()
 

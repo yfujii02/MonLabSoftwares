@@ -13,10 +13,13 @@ import sys
 import glob
 from scipy.signal import chirp, find_peaks, peak_widths
 
+
+#def main(i1, i2, i3, i4, i5, i6):
 args = sys.argv
+#args = [i1, i2, i3, i4, i5, i6]
 #print(len(args))
 ArgumentNumber = 7
-
+#ArgumentNumber=6
 if(args[1]=='-help'):
     print('Use this file to analyse silicon photomultiplier voltage waveforms - will analyse all files within ~/work/pico/data/analysisfiles, outputing histograms for integrated charge and minimum voltage as well printing to console the average minimum voltage and number of photons for each channel. The arguments should be as follows:')
     print(" ")
@@ -218,7 +221,7 @@ for j in range(NumberFiles):
           # dT = difff(TimeArray)
           # dVdT=float(dV/dT)
            IntegrateWaveform = simps(data,TimeArray)
-           print("Integral: ",IntegrateWaveform)
+           #print("Integral: ",IntegrateWaveform)
            if(ChannelCounter==1): 
                 IntA.append(IntegrateWaveform)
                 IntASig.append(IntegrateWaveform)
@@ -235,7 +238,7 @@ for j in range(NumberFiles):
                 elif(fl==1):
                     plt.plot(data)
                     plt.title("Int above thresh but Peak Not")
-                    plt.show()
+                    #plt.show()
                     
            elif(ChannelCounter==2):
                 IntB.append(IntegrateWaveform)
@@ -253,13 +256,13 @@ for j in range(NumberFiles):
                 if(IntegrateWaveform>IntegralThresh): CounterD+=1
                 if(np.min(data)<-6.0): CounterDp+=1
            
-           peaks,_=find_peaks(data)
-           results_half = peak_widths(data, peaks, rel_height=0.5)
-           results_full = peak_widths(data, peaks, rel_height=1)
-           print("Max Peak: ",np.max(data[peaks]))
-           print("Min Peak: ",np.min(data[peaks]))
-           print("Max Width: ",0.8*np.max(results_full))
-           print("Max Half  Width: ", 0.8*np.max(results_half)) 
+           #peaks,_=find_peaks(data)
+           #results_half = peak_widths(data, peaks, rel_height=0.5)
+           #results_full = peak_widths(data, peaks, rel_height=1)
+           #print("Max Peak: ",np.max(data[peaks]))
+           #print("Min Peak: ",np.min(data[peaks]))
+           #print("Max Width: ",0.8*np.max(results_full))
+           #print("Max Half  Width: ", 0.8*np.max(results_half)) 
            #plt.plot(data)
            #plt.plot(peaks,data[peaks])
            #plt.hlines(*results_half[1:], color="C2")
@@ -554,11 +557,15 @@ if(NumberChannels==2):
 elif(NumberChannels>2):
     plt.subplot(2,2,1)
 
-plt.hist(MinVoltageA,bins=NumBins)
+nA,vA, _ = plt.hist(MinVoltageA,bins=NumBins)
 plt.title("Peak Voltage Channel A")
 plt.xlabel("Peak Voltage (mV)")
 plt.ylabel("Number")
-
+#print(vA)
+#nA = np.sort(nA)
+nAi = np.argsort(nA)
+nAsize = len(nA)
+print("Peak Channel A [%f, %f]" %(vA[nAi[nAsize-2]],nA[nAi[nAsize-2]]))
 if(NumberChannels==1):
    plt.show()
    savestring = 'VoltageHist_'+inputstring+'.pdf'
@@ -570,10 +577,13 @@ elif(NumberChannels>2):
     plt.subplot(2,2,2)
 
 if(NumberChannels>=2):
-    plt.hist(MinVoltageB, bins = NumBins)
+    nB, vB, _ = plt.hist(MinVoltageB, bins = NumBins)
     plt.title("Peak Voltage B")
     plt.xlabel("Peak Voltage (mV)")
     plt.ylabel("Number")
+    nBi = np.argsort(nB)
+    nBsize = len(nB)
+    print("Peak Channel B [%f, %f]" %(vB[nBi[nBsize-1]],nB[nBi[nBsize-1]]))
 
 if(NumberChannels==2):
     plt.show()
@@ -583,10 +593,13 @@ if(NumberChannels==2):
 
 if(NumberChannels>2):
     plt.subplot(2,2,3)
-    plt.hist(MinVoltageC, bins=NumBins)
+    nC, vC, _ = plt.hist(MinVoltageC, bins=NumBins)
     plt.title("Peak Voltage C")
     plt.xlabel("Peak Voltage (mV)")
     plt.ylabel("Number")
+    nCi = np.argsort(nC)
+    nCsize = len(nC)
+    print("Peak Channel C [%f, %f]" %(vC[nCi[nCsize-1]],nC[nCi[nCsize-1]]))
 if(NumberChannels==3):
     plt.show()
     savestring = 'VoltageHist_'+inputstring+'.pdf'
@@ -594,10 +607,13 @@ if(NumberChannels==3):
 
 if(NumberChannels==4):
     plt.subplot(2,2,4)
-    plt.hist(MinVoltageD, bins=NumBins)
+    nD, vD, _ = plt.hist(MinVoltageD, bins=NumBins)
     plt.title("Peak Voltage D")
     plt.xlabel("Peak Voltage (mV)")
-    plt.ylabel("Number")
+    plt.ylabel("Number") 
+    nDi = np.argsort(nD)
+    nDsize = len(nD)
+    print("Peak Channel D [%f, %f]" %(vD[nDi[nDsize-1]],nD[nDi[nDsize-1]]))
     plt.show()
     savestring = 'VoltageHist_'+inputstring+'.pdf'
     plt.savefig(savestring, bbox_inches='tight')

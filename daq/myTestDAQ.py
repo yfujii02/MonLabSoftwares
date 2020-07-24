@@ -31,6 +31,8 @@ maxADC = ctypes.c_int16(32512)
 microsecond=1e-6
 polarity=-1
 
+TimeOutFlag=False
+
 # Setting the number of sample to be collected
 preTriggerSamples  = 256
 postTriggerSamples = 256
@@ -40,7 +42,8 @@ timebase=2 # 1.25GSPS
 windowSize=120
 startTime=preTriggerSamples
 stopTime=startTime+windowSize
-autoTriggerMilliseconds = 20000
+autotriggerCounter = 0
+autoTriggerMilliseconds = 7000
 
 nev     =100
 thr_mV  =10
@@ -244,6 +247,7 @@ def set_timebase(base):
 def get_single_event():
     global status
     global cmaxSamples
+    global autotriggerCounter
     # Creates a overlow location for data
     overflow = ctypes.c_int16()
 
@@ -272,9 +276,13 @@ def get_single_event():
     # Checks data collection to finish the capture
     ready = ctypes.c_int16(0)
     check = ctypes.c_int16(0)
+    StartTime = time.time()
     while ready.value == check.value:
         status["isReady"] = ps.ps6000IsReady(chandle, ctypes.byref(ready))
-
+    EndTime = time.time()
+    ElapsedTime = EndTime-StartTime
+    #print("Elapsed time = ", ElapsedTime)
+    if(ElapsedTime>=autoTriggerMilliseconds/1000): autotriggerCounter+=1
     # Create buffers ready for assigning pointers for data collection
     bufferMax=[[],[],[],[]]
     bufferMin=[[],[],[],[]]
@@ -414,9 +422,11 @@ def analyse_and_plot_data(data,figname):
 
 ### Initialise channel A & B
 def init_daq():
+    global TimeOutFlag
     global init
     global polarity
     global trig_ch_en
+    TimeOutFlag=False
     if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
     if init==False:
         open_scope()
@@ -446,6 +456,9 @@ def init_daq():
         init=True
     print("Polarity = ",polarity)
 
+def getTimeOutFlag():
+    return TimeOutFlag
+
 def run_daq(sub):
     set_timebase(2) ## 1.25GSPS
     data=[]
@@ -453,6 +466,10 @@ def run_daq(sub):
     global dataToSave
     global daqStartTime
     global daqEndTime
+    global autotriggerCounter
+    global TimeOutFlag
+    global init
+    global connected
     fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
@@ -463,9 +480,16 @@ def run_daq(sub):
         #data.append(adc2mVData)
         rawdata=get_single_event()
         data.append(rawdata)
+        if(autotriggerCounter>2): 
+            print("Timeout occurred!")
+            TimeOutFlag=True
+            autotriggerCounter=0
+            init = False
+            connected = False
+            break
         time.sleep(100*microsecond) ### Trigger rate is limited to 10kHz here.
     daqEndTime=time.time()
-
+    
     print('Trigger rate = ', float(nev)/(daqEndTime-daqStartTime), ' Hz'), 
     # Stops the scope
     # Handle = chandle

@@ -1,38 +1,43 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 29/06/2020
-
+Last Updated: Thurs 23/07/20
 Author: Sam Dekkers
 """
-
-
+import sys
+print(sys.path)
 import pyvisa as visa
+#import visa
 import decorator
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+
 args = sys.argv
-
-if (args[1]=='-help'):
-    print('Use this file to control voltage source: ')
-    print(' ')
-    print('sudo python RS232_Comm.py [1] [2] [3] [4] [5] [6]')
-    print(' ')
-    print(' [1] Reset Connection = 1, else use 0')
-    print(' [2] Voltage Level Required (.1f)')
-    print(' [3] Voltage Increment Before Threshold Voltage (.1f)')
-    print(' [4] Threshold Voltage (above which voltage ramp is in steps of [5]) (int for now)')
-    print(' [5] Voltage Increment After Threshold Voltage (.1f)')
-    print(' [6] Time Period required (use 0 for indefinite/until next value input) (int?)')
-    print(' ')
-    sys.exit()
 numberargs = 7
-
-if(len(args)!=numberargs):
-    print("Wrong Input - use -help as argument [1] for full breakdown")
-    sys.exit()
-
+ExitFlag=0
+if(len(args)!=numberargs): 
+    if(len(args)>1):
+        if(args[1]!='-help'):
+            print("Wrong Input - use -help as argument [1] for full breakdown")
+            sys.exit()
+    else:print("Wrong Input - use -help as argument [1] for full breakdown") 
+    ExitFlag=1
+if(len(args)>1):
+    if (args[1]=='-help'):
+        print('Use this file to control voltage source: ')
+        print(' ')
+        print('sudo python RS232_Comm.py [1] [2] [3] [4] [5] [6]')
+        print(' ')
+        print(' [1] Reset Connection = 1, else use 0')
+        print(' [2] Voltage Level Required (.1f)')
+        print(' [3] Voltage Increment Before Threshold Voltage (.1f)')
+        print(' [4] Threshold Voltage (above which voltage ramp is in steps of [5]) (int for now)')
+        print(' [5] Voltage Increment After Threshold Voltage (.1f)')
+        print(' [6] Time Period required (use 0 for indefinite/until next value input) (int?)')
+        print(' ')
+        sys.exit()
+if(ExitFlag==1): sys.exit()
 rm = visa.ResourceManager()
 print(rm.list_resources())
 #Create a connection with the RS232 port listed when printing list_resources
