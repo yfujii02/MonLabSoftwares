@@ -566,6 +566,9 @@ plt.ylabel("Number")
 nAi = np.argsort(nA)
 nAsize = len(nA)
 print("Peak Channel A [%f, %f]" %(vA[nAi[nAsize-2]],nA[nAi[nAsize-2]]))
+peaks,_=find_peaks(nA,prominence=2, width=30)
+print("Find Peaks: ")
+print(vA[peaks])
 if(NumberChannels==1):
    plt.show()
    savestring = 'VoltageHist_'+inputstring+'.pdf'
@@ -584,6 +587,9 @@ if(NumberChannels>=2):
     nBi = np.argsort(nB)
     nBsize = len(nB)
     print("Peak Channel B [%f, %f]" %(vB[nBi[nBsize-1]],nB[nBi[nBsize-1]]))
+    peaks,_=find_peaks(nB,prominence=1,width=20)
+    print("Find Peaks: ")
+    print(vB[peaks])
 
 if(NumberChannels==2):
     plt.show()
@@ -600,6 +606,9 @@ if(NumberChannels>2):
     nCi = np.argsort(nC)
     nCsize = len(nC)
     print("Peak Channel C [%f, %f]" %(vC[nCi[nCsize-1]],nC[nCi[nCsize-1]]))
+    peaks,_=find_peaks(nC,prominence=1,width=20)
+    print("Find Peaks: ")
+    print(vC[peaks])
 if(NumberChannels==3):
     plt.show()
     savestring = 'VoltageHist_'+inputstring+'.pdf'
@@ -614,6 +623,9 @@ if(NumberChannels==4):
     nDi = np.argsort(nD)
     nDsize = len(nD)
     print("Peak Channel D [%f, %f]" %(vD[nDi[nDsize-1]],nD[nDi[nDsize-1]]))
+    peaks,_=find_peaks(nD,prominence=1,width=20)
+    print("Find Peaks: ")
+    print(vD[peaks])
     plt.show()
     savestring = 'VoltageHist_'+inputstring+'.pdf'
     plt.savefig(savestring, bbox_inches='tight')
