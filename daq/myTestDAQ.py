@@ -71,12 +71,22 @@ trig_ch_en=[False,False,True,True]
 #### Number of points for moving average
 numAve=5
 
+def set_status(string):
+    status=[False,False,False,False]
+    if len(string)!=4:
+       return status
+    status=[bool(int(string[0])),bool(int(string[1])),bool(int(string[2])),bool(int(string[3]))]
+    print(status)
+    return status
+
 def set_params(var0,var1,var2,var3,var4,var5):
     global nev
     global thr_mV
     global runMode
     global nperplot
     global fname
+    global read_ch_en
+    global trig_ch_en
     nev     = var0
     thr_mV  = var1
     if (thr_mV>500):
@@ -84,8 +94,43 @@ def set_params(var0,var1,var2,var3,var4,var5):
             chRange[ch]=7
     runMode = var2
     fname=var3
+    print('Read ch status')
+    read_ch_en=set_status(var4)
+    print('Trig ch status')
+    trig_ch_en=set_status(var5)
     nperplot = int(nev/10)+1 ## to show 10 waveforms per 1 run
     print('Number of events to be collected: ',nev)
+
+def sig_gen():
+    global status
+    global chandle
+    # Output a square wave with peak-to-peak voltage of 2 V and frequency of 10 kHz
+    # handle = chandle
+    # offsetVoltage = 1000000
+    # pkToPk = 2000000
+    # waveType = ctypes.c_int16(1) = PS6000_SQUARE
+    # startFrequency = 1 MHz
+    # stopFrequency = 1 MHz
+    # increment = 0
+    # dwellTime = 1
+    # sweepType = ctypes.c_int16(1) = PS6000_UP
+    # operation = 0
+    # shots = 1
+    # sweeps = 0
+    # triggerType = ctypes.c_int16(0) = PS6000_SIGGEN_RISING
+    # triggerSource = ctypes.c_int16(0) = PS6000_SIGGEN_NONE
+    # extInThreshold = 1
+    wavetype = ctypes.c_int16(1)
+    sweepType = ctypes.c_int32(0)
+    triggertype = ctypes.c_int32(0)
+    #triggerSource = ctypes.c_int32(0)
+    triggerSource = ctypes.c_int32(2) ## AUX??
+    #triggerSource = ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"]
+    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, 0, 2000000, wavetype,
+                                                           8000000, 8000000, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
+    time.sleep(2)
+    print('BuiltIn Sig Gen is activated: ',status["SetSigGenBuiltIn"])
+    assert_pico_ok(status["SetSigGenBuiltIn"])
 
 def open_scope():
     global status
@@ -100,7 +145,7 @@ def open_scope():
     # Displays the serial number and handle
     print(chandle.value)
 
-def channel_init(channel):
+def channel_init(channel,coupling):
     global status
     global chandle
     print('Init ch',channel)
@@ -113,12 +158,11 @@ def channel_init(channel):
     # analogue offset = 0 V
     Set=setCh[channel]
     ch_range=chRange[channel]
-    coupling=ps.PS6000_COUPLING["PS6000_DC_50R"]
     status[Set] = ps.ps6000SetChannel(chandle, channel, 1, coupling, ch_range, 0, 0)
     assert_pico_ok(status[Set])
     return True
 
-def set_advancedTrigger(value,chan_en):
+def set_advancedTrigger(value,chan_en,useAUX):
     # Set up window pulse width trigger on specified channel
     global status
     global chandle
@@ -135,7 +179,6 @@ def set_advancedTrigger(value,chan_en):
             print('Ch ',ch,' are trigger channel')
             states[ch] = ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_TRUE"]
             conds[ch]  = ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_TRUE"]
-            #dirs[ch]   = ps.PS6000_THRESHOLD_DIRECTION["PS6000_INSIDE"]
             if polarity>0:
                 dirs[ch]   = ps.PS6000_THRESHOLD_DIRECTION["PS6000_ABOVE"]
             else:
@@ -145,7 +188,6 @@ def set_advancedTrigger(value,chan_en):
     triggerConditions = ps.PS6000_TRIGGER_CONDITIONS(states[0],states[1],states[2],states[3],
                                                      ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
                                                      ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
-                                                     #ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"])
                                                      ps.PS6000_TRIGGER_STATE["PS6000_CONDITION_TRUE"]) # Use PWQ
     nTriggerConditions = 1
     status["setTriggerChannelConditions"] = ps.ps6000SetTriggerChannelConditions(chandle, ctypes.byref(triggerConditions), nTriggerConditions)
@@ -174,6 +216,8 @@ def set_advancedTrigger(value,chan_en):
         print('### ',ch)
         ch_range=chRange[ch]
         threshold = mV2adc(value, ch_range, maxADC)
+        if ch_range>8:
+            threshold = mV2adc(0, ch_range, maxADC)
         if (ch_range==2):
             maxthreshold = mV2adc(50, ch_range, maxADC)
         elif (ch_range==3):
@@ -185,7 +229,6 @@ def set_advancedTrigger(value,chan_en):
         thre1 = max(threshold,maxthreshold)
         print("Thre0/Thre1 : ",thre0,"/",thre1)
         mode = ps.PS6000_THRESHOLD_MODE["PS6000_LEVEL"]
-        #mode = ps.PS6000_THRESHOLD_MODE["PS6000_WINDOW"]
         channelProperties[nChannelProperties] = ps.PS6000_TRIGGER_CHANNEL_PROPERTIES(polarity*thre0,
                                                                  hysteresis,
                                                                  polarity*thre1,
@@ -374,12 +417,15 @@ def analyse_and_plot_data(data,figname):
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            if ch>0:continue #### plot only chA for now...
+            #if ch>0:continue #### plot only chA for now...
             #if ch!=1:continue #### plot only chB for now...
             if (i%nperplot)!=0:continue
-            ax1.plot(timeX, adc2mVChMax[:]-baseline)
+            if ch==0:
+                ax1.plot(timeX, adc2mVChMax[:]-baseline)
+            if ch==1:
+                ax2.plot(timeX, adc2mVChMax[:]-baseline)
             #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
-            ax2.plot(timeX, avwf-baseline)
+            #ax2.plot(timeX, avwf-baseline)
 
     dataToSave.append(waveforms)
 
@@ -426,15 +472,25 @@ def init_daq():
     global init
     global polarity
     global trig_ch_en
+    global chRange
     TimeOutFlag=False
+    couplings=[ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"],
+               ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"]]
     if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
+    if runMode==3:
+        trig_ch_en=[False,True,False,False] ### !!Temporary
+        couplings[1] = ps.PS6000_COUPLING["PS6000_DC_1M"]
+        chRange=[3,9,3,3] # ranges for each channel [100mV, 10V,..]
     if init==False:
         open_scope()
+        if runMode==3:
+            sig_gen()
+            polarity=+1
         for ch in range(4):
             if read_ch_en[ch]==True or trig_ch_en[ch]==True:
-                channel_init(ch)
+                channel_init(ch,couplings[ch])
         ### pedestal run
-        if   runMode==0:
+        if   runMode==0 or runMode==3:
             trigCh=-1
             for ch in range(4):
                 if trig_ch_en[ch]==True:
@@ -445,14 +501,12 @@ def init_daq():
                 exit()
             print('Trigger ch: ',trigCh)
             set_simpleTrigger(thr_mV,trigCh,True)
-        elif runMode==1: # negative polarity for SiPM signals
+        if runMode==1: # negative polarity for SiPM signals
             polarity = -1
-            ch_en=trig_ch_en
-            set_advancedTrigger(thr_mV,ch_en)
-        elif runMode==2: # positive polarity for other tests
+            set_advancedTrigger(thr_mV,trig_ch_en,False)
+        if runMode==2: # positive polarity for other tests
             polarity = +1
-            ch_en=trig_ch_en
-            set_advancedTrigger(thr_mV,ch_en)
+            set_advancedTrigger(thr_mV,trig_ch_en,False)
         init=True
     print("Polarity = ",polarity)
 

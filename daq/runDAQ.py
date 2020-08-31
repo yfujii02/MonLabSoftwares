@@ -11,6 +11,7 @@ if len(args)!=6:
     print("     [3] : DAQ mode  0: pedestal trigger     ")
     print("                     1: Two hits coincidence for negative signal")
     print("                     2: Two hits coincidence for positive signal")
+    print("                     3: Channel B trigger + signal gen")
     print("     [4] : Output file name                  ")
     print("     [5] : Threshold in mV                   ")
     exit()
@@ -20,6 +21,7 @@ print('DAQ mode                         :',args[3])
 print("                     0: pedestal trigger     ")
 print("                     1: Two hits coincidence for negative signal")
 print("                     2: Two hits coincidence for positive signal")
+print("                     3: Channel B trigger + signal gen")
 print('Output file name w/o ".XXX"      :',args[4])
 print('Threshold in mV                  :',args[5])
 
@@ -29,11 +31,12 @@ if num_subruns<1 or num_events<1:
     print("You're wrong!")
     exit()
 daqMode=int(args[3])
-if daqMode<0 or daqMode>2:
+if daqMode<0 or daqMode>3:
     print("Invalid DAQ mode ", daqMode)
     print("                     0: pedestal trigger     ")
     print("                     1: Two hits coincidence for negative signal")
     print("                     2: Two hits coincidence for positive signal")
+    print("                     3: Channel B trigger + signal gen")
     exit()
 
 fname=args[4]
@@ -45,9 +48,10 @@ if(threshold<0):
 # Num of events per sub run
 # Thresholds in mV
 # DAQ mode (pedestal or selftrigger)
-readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
-#trigchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
+readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel)
 myTestDAQ.init_daq()
 
