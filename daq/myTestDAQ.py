@@ -34,8 +34,10 @@ polarity=-1
 TimeOutFlag=False
 
 # Setting the number of sample to be collected
-preTriggerSamples  = 256
-postTriggerSamples = 256
+#preTriggerSamples  = 256
+#postTriggerSamples = 256
+preTriggerSamples  = 100
+postTriggerSamples = 300
 maxSamples = preTriggerSamples + postTriggerSamples
 print('max samples',maxSamples)
 timebase=2 # 1.25GSPS
@@ -126,8 +128,8 @@ def sig_gen():
     #triggerSource = ctypes.c_int32(0)
     triggerSource = ctypes.c_int32(2) ## AUX??
     #triggerSource = ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"]
-    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, 0, 2000000, wavetype,
-                                                           8000000, 8000000, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
+    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, 0, 1500000, wavetype,
+                                                           20000000, 20000000, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
     time.sleep(2)
     print('BuiltIn Sig Gen is activated: ',status["SetSigGenBuiltIn"])
     assert_pico_ok(status["SetSigGenBuiltIn"])
