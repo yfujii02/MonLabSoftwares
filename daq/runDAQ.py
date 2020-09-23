@@ -52,7 +52,28 @@ if(threshold<0):
 readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 #trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel)
+
+#genPulseV=0.870*2.0  # in V used for 405nm
+#genPulseV=1.000*2.0  # in V used for 385nm
+#genPulseV=0.850*2.0  # in V used for 470nm
+#genPulseV=0.775*2.0  # in V used for 525nm
+#genPulseV=0.360*2.0  # in V used for 585nm
+genPulseV=0.220*2.0  # in V used for 626nm
+
+genPulseRate=20  # in MHz
+# Voltage Ranges for channel ABCD
+# 2 = 50 mV
+# 3 = 100 mV 
+# 4 = 200 mV
+# 5 = 500 mV
+# 6 = 1 V
+# 7 = 2 V
+# 8 = 5 V 
+# 9 = 10 V 
+volRanges="5833"
+myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
+if daqMode==3:
+    myTestDAQ.set_pulseParam(int(genPulseV*1e6), int(genPulseRate*1e6))
 myTestDAQ.init_daq()
 
 for i in range(num_subruns):

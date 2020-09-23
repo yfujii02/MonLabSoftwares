@@ -15,7 +15,7 @@ import matplotlib.gridspec as gridspec
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 
 ############# Constant values
-chRange=[4,4,3,3] # ranges for each channel [50mV, 50mV,..]
+chRange=[2,2,2,2] # ranges for each channel
 # Voltage Ranges
 # 2 = 50 mV
 # 3 = 100 mV 
@@ -51,6 +51,8 @@ nev     =100
 thr_mV  =10
 runMode =0
 nperplot=10
+genPulseV=1000    # in micro-volts
+genPulseRate=100  # in Hz
 
 daqStartTime=0
 daqEndTime  =0
@@ -81,7 +83,14 @@ def set_status(string):
     print(status)
     return status
 
-def set_params(var0,var1,var2,var3,var4,var5):
+def set_pulseParam(var0,var1):
+    global genPulseV
+    global genPulseRate
+    genPulseV=var0
+    genPulseRate=var1
+    print('Pulse Voltage=',genPulseV*1e-3,' [mV], Pulse Rate=',genPulseRate*1e-6,' [MHz]')
+
+def set_params(var0,var1,var2,var3,var4,var5,var6):
     global nev
     global thr_mV
     global runMode
@@ -89,17 +98,19 @@ def set_params(var0,var1,var2,var3,var4,var5):
     global fname
     global read_ch_en
     global trig_ch_en
+    global chRange
     nev     = var0
     thr_mV  = var1
-    if (thr_mV>500):
-        for ch in range(4):
-            chRange[ch]=7
     runMode = var2
     fname=var3
     print('Read ch status')
     read_ch_en=set_status(var4)
     print('Trig ch status')
     trig_ch_en=set_status(var5)
+    if len(var6)!=4:
+        print('Wrong argument assigned for var6')
+        exit()
+    for ch in range(4): chRange[ch]=int(var6[ch])
     nperplot = int(nev/10)+1 ## to show 10 waveforms per 1 run
     print('Number of events to be collected: ',nev)
 
@@ -126,12 +137,12 @@ def sig_gen():
     sweepType = ctypes.c_int32(0)
     triggertype = ctypes.c_int32(0)
     #triggerSource = ctypes.c_int32(0)
-    triggerSource = ctypes.c_int32(2) ## AUX??
+    triggerSource = ctypes.c_int32(2) ## AUX
     #triggerSource = ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"]
-    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, 0, 1500000, wavetype,
-                                                           20000000, 20000000, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
-    time.sleep(2)
-    print('BuiltIn Sig Gen is activated: ',status["SetSigGenBuiltIn"])
+    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, int(genPulseV/2), genPulseV, wavetype,
+                                                           genPulseRate, genPulseRate, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
+    time.sleep(1)
+    print('BuiltIn Sig Gen is activated')
     assert_pico_ok(status["SetSigGenBuiltIn"])
 
 def open_scope():
@@ -161,6 +172,7 @@ def channel_init(channel,coupling):
     Set=setCh[channel]
     ch_range=chRange[channel]
     status[Set] = ps.ps6000SetChannel(chandle, channel, 1, coupling, ch_range, 0, 0)
+    print(Set,' ',ch_range,' ',coupling)
     assert_pico_ok(status[Set])
     return True
 
@@ -411,10 +423,11 @@ def analyse_and_plot_data(data,figname):
             avwf = polarity * adc2mVChMax ### Skip averaging to speed up the daq..
             baseline =avwf[:windowSize].mean()
             chargeTmp=(avwf[startTime:stopTime].sum()-baseline*windowSize)
-            base  = np.append(base, baseline)                     # mean value of the baseline
-            wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
-            vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
-            charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
+            if ch==0:
+                base  = np.append(base, baseline)                     # mean value of the baseline
+                wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
+                vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
+                charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
             if len(waveforms)==0:
                 waveforms=np.transpose(adc2mVChMax)
             else:
@@ -441,27 +454,27 @@ def analyse_and_plot_data(data,figname):
     nbins=100
     
     ymax=0.15*float(nev)
-    xbins=np.linspace(0,0.9,nbins)
+    xbins=np.linspace(0,1.6*chRange[0],nbins)
     ax3.hist(wfrms,bins=xbins)
-    ax3.set_ylim(0.8,ymax)
+    #ax3.set_ylim(0.8,ymax)
     ax3.set_title('Pedestal RMS')
-    ax3.text(+0.5,0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
+    ax3.text(0.8*chRange[0],0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
     ax3.set_xlabel('rms (mv)')
      
-    xbins=np.linspace(0,50,nbins)
-    ax4.hist(vmax,bins=xbins,density=True)
-    ax4.text(25,0.5*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
-    ax4.set_ylim(0,1)
-    ax4.set_yscale('log')
+    xbins=np.linspace(-chRange[0],74*chRange[0],nbins)
+    ax4.hist(vmax,bins=xbins)
+    ax4.text(25*chRange[0],0.2*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
+    #ax4.set_ylim(0,1)
+    #ax4.set_yscale('log')
     ax4.set_title('Max Peak value')
-    ax4.set_xlabel('Max Voltage (mv)')
+    ax4.set_xlabel('Max Voltage (mV)')
     
     ymax=0.08*float(nev)
-    xbins=np.linspace(-50,50,nbins)
+    xbins=np.linspace(-chRange[0]*16,74*chRange[0]*16,nbins)
     ax5.hist(charge,bins=xbins)
-    ax5.set_ylim(0.8,ymax)
-    ax5.set_yscale('log')
-    ax5.text(22,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
+    #ax5.set_ylim(0.8,ymax)
+    #ax5.set_yscale('log')
+    ax5.text(40*chRange[0]*16,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
     ax5.set_title('Integrated charge')
     ax5.set_xlabel('Charge (mv*ns)')
     
@@ -482,15 +495,15 @@ def init_daq():
     if runMode==3:
         trig_ch_en=[False,True,False,False] ### !!Temporary
         couplings[1] = ps.PS6000_COUPLING["PS6000_DC_1M"]
-        chRange=[3,9,3,3] # ranges for each channel [100mV, 10V,..]
+
     if init==False:
         open_scope()
-        if runMode==3:
-            sig_gen()
-            polarity=+1
         for ch in range(4):
             if read_ch_en[ch]==True or trig_ch_en[ch]==True:
                 channel_init(ch,couplings[ch])
+        if runMode==3:
+            sig_gen()
+            polarity=+1
         ### pedestal run
         if   runMode==0 or runMode==3:
             trigCh=-1
