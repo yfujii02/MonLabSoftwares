@@ -54,11 +54,11 @@ readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in
 trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
 #genPulseV=0.870*2.0  # in V used for 405nm
-#genPulseV=1.000*2.0  # in V used for 385nm
+genPulseV=1.000*2.0  # in V used for 385nm
 #genPulseV=0.850*2.0  # in V used for 470nm
 #genPulseV=0.775*2.0  # in V used for 525nm
 #genPulseV=0.360*2.0  # in V used for 585nm
-genPulseV=0.220*2.0  # in V used for 626nm
+#genPulseV=0.220*2.0  # in V used for 626nm
 
 genPulseRate=20  # in MHz
 # Voltage Ranges for channel ABCD

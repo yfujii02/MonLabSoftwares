@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 DataPath = r'/home/comet/work/pico/data/'
-Date = ['Sep21','Sep22']
+Date = ['Sep21','Sep22','Sep24']
 FibreType = ['plastic','glass']
 FibreLength = [1,9]
 LEDWavelength =[385,405,470,525,585,626]

@@ -24,9 +24,15 @@ dt = 0.8e-9
 TimeArray = np.linspace(0.0,Samples*dt,Samples)
 fftT = np.linspace(0.0, 1.0/(2.0*dt), Samples//2)
 ThresholdFreq = 0.32e8
+
 IntegrationWidth=40
 NumMAv=5 # Number of moving average points
 PedestalRange=90
+
+def SetFFTOn(ffton):
+    global FFTOn
+    FFTOn = ffton
+    return 1
 
 def GetFileList(DataPath,Date,FibreType,FibreLength,LEDWavelength,Voltage):
     #Example: DataPath = r'C:\Users\smdek2\Documents\SiPMTests\PlasticFibreTests\Sep17_InitialGlassFibreTests\'
@@ -47,26 +53,27 @@ def GetWaveformData(Filename):
     return WaveformData
 
 #### Compatible to the original peak search function written by SamD
-def PeakSearchOrig(wf,peakSearchRange,peakThreshold,baseLevel,maxIndex,startIndex,endIndex):
-    waveform = wf[peakSearchRange[0]:peakSearchRange[1]]
-    if waveform.max()<peakSearchThreshold:
+def PeakSearchOrig(wf,peakSearchRange,peakThreshold,baseLevel,maxIndex):
+    startIndex=-1
+    endIndex  =-1
+    waveform  = wf[peakSearchRange[0]:peakSearchRange[1]]
+    if waveform.max()<peakThreshold:
         ### Return if no peak found...
-        return False
-    maxIndices=np.argmax(waveform)
-    maxIndex=maxIndices[0] ## Ignore after pulses now
+        return False,startIndex,endIndex
+    maxIndex=np.argmax(waveform)
     for i in range(maxIndex,0,-1):
         if(waveform[i]<=baseLevel):
             startIndex=i
             break
-    for i in range(maxIndex,len(waveform),1)
+    for i in range(maxIndex,len(waveform),1):
         if(waveform[i]<=baseLevel):
             endIndex=i
             break
     if (startIndex<0 or endIndex<0):
-        return False
+        return False,startIndex,endIndex
     startIndex = startIndex+peakSearchRange[0]
     endIndex   = endIndex  +peakSearchRange[0]
-    return True
+    return True,startIndex,endIndex
 
 def PeakSearchSciPy(wf,heightThr,minGap):
     find_peaks(wf,height=heightThr,distance=minGap)
@@ -93,9 +100,8 @@ def GetData(WaveformData,Output,Length):
 
         #baseLevel=np.array(MPPCSig[NumMAv:NumMAv+PedestalRange]).mean()
         #baseStd  =np.array(MPPCSig[NumMAv:NumMAv+PedestalRange]).std()
-        
-        if(np.max(MPPCSig)>30): PeakThreshold=20
-        else: PeakThreshold = 5
+        PeakThreshold=20 
+        if(np.max(MPPCSig)<30): PeakThreshold=5
         
         if(Length==1): TimeThreshold=120
         else: TimeThreshold=180
@@ -117,9 +123,8 @@ def GetData(WaveformData,Output,Length):
         EndIndex=-1
         PeakFlag=-1
         PeakFound=False
-        
-        PeakFound=PeakSearchOrig(MPPCSigFilt,[TimeThreshold,len(MPPCSigFilt)-1],
-                                 PeakThreshold,0,MaxIndex,StartIndex,EndIndex)
+        SearchRange=[TimeThreshold,len(MPPCSigFilt)-1] 
+        PeakFound,StartIndex,EndIndex=PeakSearchOrig(MPPCSigFilt,SearchRange,PeakThreshold,0,MaxIndex)
         
         if(PeakFound==False):
             BadEventCounter+=1
