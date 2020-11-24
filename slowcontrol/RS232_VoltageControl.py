@@ -43,20 +43,14 @@ print(rm.list_resources())
 #Create a connection with the RS232 port listed when printing list_resources
 time.sleep(0.5)
 instrument=rm.open_resource(u'ASRL/dev/ttyUSB0::INSTR')
-#instrument=rm.open_resource(u'ASRL/dev/ttyS0::INSTR')
 ResetFlag = int(args[1])
-#instrument.baud_rate(9600)
 instrument.baud_rate=9600
 instrument.write_termination = '\n'
 instrument.read_termination = '\n'
 instrument.timeout=5000
-if(ResetFlag==1):
-    instrument.write("*RST")
-    print("RESET")
 #Setup command character terminations - basically the settings so that the PC and instrument
 #recognise the end of a command - this is instrument dependent unfortunately and not always
 #clear as to what it should be set to.
-
 
 #Send a query command for instrument identification to test both read and write commands are
 #functioning at both ends
@@ -69,7 +63,9 @@ print("Write Termination Character: \\n")
 print("Read Termination Character: \\n")
 print("Instrument Address: 22")
 
-if(ResetFlag==1): instrument.write("*RST")
+if(ResetFlag==1):
+    print(instrument.write("*RST"))
+    print("RESET")
 
 instrument.write('*IDN?')
 print(instrument.read('\n'))

@@ -41,7 +41,7 @@ postTriggerSamples = 300
 maxSamples = preTriggerSamples + postTriggerSamples
 print('max samples',maxSamples)
 timebase=2 # 1.25GSPS
-windowSize=120
+windowSize=70
 startTime=preTriggerSamples
 stopTime=startTime+windowSize
 autotriggerCounter = 0
@@ -139,7 +139,8 @@ def sig_gen():
     #triggerSource = ctypes.c_int32(0)
     triggerSource = ctypes.c_int32(2) ## AUX
     #triggerSource = ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"]
-    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, int(genPulseV/2), genPulseV, wavetype,
+    #status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, int(genPulseV/2), genPulseV, wavetype,
+    status["SetSigGenBuiltIn"] = ps.ps6000SetSigGenBuiltIn(chandle, 0, genPulseV, wavetype,
                                                            genPulseRate, genPulseRate, 0, 1, sweepType, 0, 1, 0, triggertype, triggerSource, 1)
     time.sleep(1)
     print('BuiltIn Sig Gen is activated')
@@ -460,8 +461,11 @@ def analyse_and_plot_data(data,figname):
     ax3.set_title('Pedestal RMS')
     ax3.text(0.8*chRange[0],0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
     ax3.set_xlabel('rms (mv)')
-     
-    xbins=np.linspace(-chRange[0],74*chRange[0],nbins)
+   
+    vRange = [-1,99]
+    if chRange[0]==5: vRange = [-10,490]
+    if chRange[0]==6: vRange = [-10,990]
+    xbins=np.linspace(vRange[0],vRange[1],nbins)
     ax4.hist(vmax,bins=xbins)
     ax4.text(25*chRange[0],0.2*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
     #ax4.set_ylim(0,1)
@@ -470,7 +474,7 @@ def analyse_and_plot_data(data,figname):
     ax4.set_xlabel('Max Voltage (mV)')
     
     ymax=0.08*float(nev)
-    xbins=np.linspace(-chRange[0]*16,74*chRange[0]*16,nbins)
+    xbins=np.linspace(-chRange[0]*16,75*chRange[0]*16,nbins)
     ax5.hist(charge,bins=xbins)
     #ax5.set_ylim(0.8,ymax)
     #ax5.set_yscale('log')
@@ -494,7 +498,7 @@ def init_daq():
     if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
     if runMode==3:
         trig_ch_en=[False,True,False,False] ### !!Temporary
-        couplings[1] = ps.PS6000_COUPLING["PS6000_DC_1M"]
+    #    couplings[1] = ps.PS6000_COUPLING["PS6000_DC_1M"]
 
     if init==False:
         open_scope()
@@ -502,7 +506,7 @@ def init_daq():
             if read_ch_en[ch]==True or trig_ch_en[ch]==True:
                 channel_init(ch,couplings[ch])
         if runMode==3:
-            sig_gen()
+            #sig_gen()
             polarity=+1
         ### pedestal run
         if   runMode==0 or runMode==3:
