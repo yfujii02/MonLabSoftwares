@@ -472,6 +472,7 @@ def analyse_and_plot_data(data,figname):
     #ax4.set_yscale('log')
     ax4.set_title('Max Peak value')
     ax4.set_xlabel('Max Voltage (mV)')
+    print('Mean of max height = ',vmax.mean(),' mV')
     
     ymax=0.08*float(nev)
     xbins=np.linspace(-chRange[0]*16,75*chRange[0]*16,nbins)
@@ -532,7 +533,7 @@ def init_daq():
 def getTimeOutFlag():
     return TimeOutFlag
 
-def run_daq(sub):
+def run_daq(sub,run):
     set_timebase(2) ## 1.25GSPS
     data=[]
     global ofile
@@ -543,7 +544,8 @@ def run_daq(sub):
     global TimeOutFlag
     global init
     global connected
-    fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
+    if(run!=0): fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(run)+'_'+str(sub)+'.npy'
+    elif(run==0): fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')

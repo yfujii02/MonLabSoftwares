@@ -1,6 +1,8 @@
 import time
 import sys
 import myTestDAQ
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 ### global parameters
 num_events=100
@@ -85,7 +87,7 @@ def main():
     for i in range(num_subruns):
         print('Sub run: ',i,'/',num_subruns)
         Start = time.time()
-        myTestDAQ.run_daq(i)
+        myTestDAQ.run_daq(i,0) #26/11 added run number to run_daq() - set to 0 when not required
         End = time.time()
         eTime = End-Start
         print("RunDaq Time = ", eTime)
