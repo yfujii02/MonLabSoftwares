@@ -16,6 +16,9 @@ from datetime import datetime
 # Create chandle and status ready for use
 status = {}
 chandle = ctypes.c_int16()
+filename='temperature.log'
+
+interval = 60 # default time interval (sec)
 
 # Opens the device
 def init():
@@ -102,16 +105,30 @@ def close():
     print(status)
 
 def main():
-    dateA = np.array([])
-    tempA = np.array([])
-    
+    data = np.array([[],[]])
+    init() 
     print('Start main loop')
-    while(1):
-        date,temp=get_data()
-        
+    with open(filename, 'w') as f:
+        while(1):
+            date,temp=get_data()
+            data = np.append(data,[[date,temp]],axis=0) 
+            sData= np.array([[date,temp]]).tostring()
+            f.write(sData+'\n')
+            curretTemp = str(temp)
+            plt.plot(data,label='Temperature='+currentTemp)
+            plt.xlabel('Datetime')
+            plt.ylabel('Temperature')
+            plt.ylim(18,28)
+            plt.legend('upper center',fontsize='large')
+            plt.pause(interval)
+    
+    close() 
+    plt.show()
+    print('End')
+
 
 #### main loop
-f __name__ == '__main__':
+if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
