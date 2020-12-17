@@ -16,9 +16,11 @@ from datetime import datetime
 # Create chandle and status ready for use
 status = {}
 chandle = ctypes.c_int16()
-filename='temperature.log'
+filename='temperature.txt'
 
-interval = 60 # default time interval (sec)
+ideal_no_of_samples = 1024
+interval = 10 # default time interval (sec)
+#interval = 2 # default time interval (sec)
 
 # Opens the device
 def init():
@@ -29,7 +31,6 @@ def init():
     
     # Set sample interval
     us_for_block = ctypes.c_int32(1000)
-    ideal_no_of_samples = 1000
     channels = ctypes.c_int32(drDaq.USB_DRDAQ_INPUTS["USB_DRDAQ_CHANNEL_TEMP"])
     no_of_channels = 1
     status["setInterval"] = drDaq.UsbDrDaqSetInterval(chandle, ctypes.byref(us_for_block), ideal_no_of_samples,
@@ -40,27 +41,30 @@ def init():
     channel = drDaq.USB_DRDAQ_INPUTS["USB_DRDAQ_CHANNEL_TEMP"]
     nScales = ctypes.c_int16(0)
     currentScale = ctypes.c_int16(0)
-    names = (ctypes.c_char*256)()
-    namesSize = 256
+    hoge=256
+    names = (ctypes.c_char*hoge)()
+    namesSize = hoge
     status["getscalings"] = drDaq.UsbDrDaqGetScalings(chandle, channel, ctypes.byref(nScales),
                                                       ctypes.byref(currentScale), ctypes.byref(names), namesSize)
     assert_pico_ok(status["getscalings"])
     
-    print(nScales.value)
-    print(currentScale.value)
-    print(names.value)
+    print('AA ',nScales.value)
+    print('BB ',currentScale.value)
+    print('CC ',names.value)
     
     # Set channel scaling 
-    scalingNumber = 0 # pH scaling
+    scalingNumber = 0 #
     status["setscaling"] = drDaq.UsbDrDaqSetScalings(chandle, channel, scalingNumber)
     assert_pico_ok(status["setscaling"])
     
     # Set temperature compenstation
     #enabled = 1
-    #status["phTemperatureCompensation"] = drDaq.UsbDrDaqPhTemperatureCompensation(chandle, enabled)
-    #assert_pico_ok(status["phTemperatureCompensation"])
+    #status["TemperatureCompensation"] = drDaq.UsbDrDaqPhTemperatureCompensation(chandle, enabled)
+    #assert_pico_ok(status["TemperatureCompensation"])
 
 def get_data():
+    global status
+    global chandle
     # Run block capture
     method = drDaq.USB_DRDAQ_BLOCK_METHOD["BM_SINGLE"]
     status["run"] = drDaq.UsbDrDaqRun(chandle, ideal_no_of_samples, method)
@@ -83,9 +87,10 @@ def get_data():
     assert_pico_ok(status["getvaluesF"])
     
     # generate time data
-    time = np.linspace(0, us_for_block, ideal_no_of_samples)
-    now  = datetime.now()
-    temp = np.array(values[:]).mean()
+    #time = np.linspace(0, us_for_block, ideal_no_of_samples)
+    #now  = datetime.now()
+    now  = time.time()
+    temp = np.array(values[:]).mean()/10.0
     
     return now,temp
 
@@ -105,22 +110,35 @@ def close():
     print(status)
 
 def main():
-    data = np.array([[],[]])
     init() 
+    ipts=0
+    dateA=0
+    tempA=0
     print('Start main loop')
+    fig = plt.figure()
     with open(filename, 'w') as f:
         while(1):
             date,temp=get_data()
-            data = np.append(data,[[date,temp]],axis=0) 
-            sData= np.array([[date,temp]]).tostring()
-            f.write(sData+'\n')
-            curretTemp = str(temp)
-            plt.plot(data,label='Temperature='+currentTemp)
+            arr=np.array([[date,temp]])
+            print(arr)
+            if ipts==0:
+                dateA=np.array([date])
+                tempA=np.array([temp])
+            else:
+                dateA=np.append(dateA,date)
+                tempA=np.append(tempA,temp)
+            ipts=ipts+1
+            f.write(str(arr)+'\n')
+            currentTemp = str(temp)
+            #print(date,currentTemp)
+            line = plt.plot(dateA,tempA,label=str(float('%.4g' % temp)))
             plt.xlabel('Datetime')
             plt.ylabel('Temperature')
             plt.ylim(18,28)
-            plt.legend('upper center',fontsize='large')
+            plt.legend(loc='lower center',fontsize='x-large')
             plt.pause(interval)
+            fig.clear()
+            #time.sleep(interval)
     
     close() 
     plt.show()
