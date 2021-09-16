@@ -134,7 +134,7 @@ def main():
             line = plt.plot(dateA,tempA,label=str(float('%.4g' % temp)))
             plt.xlabel('Datetime')
             plt.ylabel('Temperature')
-            plt.ylim(18,28)
+            plt.ylim(20,27)
             plt.legend(loc='lower center',fontsize='x-large')
             plt.pause(interval)
             fig.clear()

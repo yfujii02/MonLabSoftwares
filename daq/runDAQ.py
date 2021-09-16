@@ -15,10 +15,12 @@ threshold=100
 # Num of events per sub run
 # Thresholds in mV
 # DAQ mode (pedestal or selftrigger)
-#readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
-readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-#trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
+#readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#Set B,C,D as trigger channels for scint-fibre tests 24/02
+
+#trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
 #genPulseV=1.000*2.0  # in V used for 385nm
 #genPulseV=0.870*2.0  # in V used for 405nm
@@ -44,9 +46,11 @@ genPulseRate=20  # in MHz
 # 7 = 2 V
 # 8 = 5 V 
 # 9 = 10 V 
-volRanges="6733"
+#volRanges="6733"
+volRanges="6555"
 
 plotEachFig=False
+#plotEachFig=True
 
 def setPlotEachFig(val):
     global plotEachFig
@@ -83,7 +87,7 @@ def setParameters(val0,val1,val2,val3,val4):
 
 def main():
     initDAQ(daqMode)
-    
+    StartProgramTime = time.time() #So I can see how many events we get in the time we run for (24/02)    
     for i in range(num_subruns):
         print('Sub run: ',i,'/',num_subruns)
         Start = time.time()

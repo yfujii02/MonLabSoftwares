@@ -4,3 +4,4 @@ picosdk-c-examples/
 *.swp
 */.ipynb_checkpoints/
 ana/*.pdf
+IVCurveData21/*

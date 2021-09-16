@@ -45,7 +45,8 @@ windowSize=70
 startTime=preTriggerSamples
 stopTime=startTime+windowSize
 autotriggerCounter = 0
-autoTriggerMilliseconds = 7000
+#autoTriggerMilliseconds = 7000
+autoTriggerMilliseconds=0 #set to 0 for low rate cosmic ray scint-fibre test 24/02/21
 
 nev     =100
 thr_mV  =10
@@ -237,6 +238,10 @@ def set_advancedTrigger(value,chan_en,useAUX):
             maxthreshold = mV2adc(50, ch_range, maxADC)
         elif (ch_range==3):
             maxthreshold = mV2adc(100, ch_range, maxADC)
+        elif (ch_range==4):
+            maxthreshold = mV2adc(200, ch_range, maxADC)
+        elif (ch_range==5):
+            maxthreshold = mV2adc(500,ch_range,maxADC)
         elif (ch_range==7):
             maxthreshold = mV2adc(2000, ch_range, maxADC)
         print('threshold=',value,', (', threshold,' in COUNT)')
@@ -340,7 +345,8 @@ def get_single_event():
     EndTime = time.time()
     ElapsedTime = EndTime-StartTime
     #print("Elapsed time = ", ElapsedTime)
-    if(ElapsedTime>=autoTriggerMilliseconds/1000): autotriggerCounter+=1
+    if(autoTriggerMilliseconds>0):
+        if(ElapsedTime>=autoTriggerMilliseconds/1000): autotriggerCounter+=1
     # Create buffers ready for assigning pointers for data collection
     bufferMax=[[],[],[],[]]
     bufferMin=[[],[],[],[]]
@@ -400,12 +406,17 @@ def analyse_and_plot_data(data,figname):
     vmax=np.array([])
     charge=np.array([])
     fig = plt.figure(figsize=(15,8))
-    gs  = gridspec.GridSpec(3,3)
+    #gs  = gridspec.GridSpec(3,3)
+    gs = gridspec.GridSpec(4,4)
     ax1 = plt.subplot(gs[0,:])
     ax2 = plt.subplot(gs[1,:])
-    ax3 = plt.subplot(gs[2,0])
-    ax4 = plt.subplot(gs[2,1])
-    ax5 = plt.subplot(gs[2,2])
+    ax3 = plt.subplot(gs[2,:])
+    ax4 = plt.subplot(gs[3,:])
+
+    #I have changed this to view all channels... (24/02)
+    #ax3 = plt.subplot(gs[2,0])
+    #ax4 = plt.subplot(gs[2,1])
+    #ax5 = plt.subplot(gs[2,2])
 
     timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
     startTime2 = startTime + numAve
@@ -440,6 +451,11 @@ def analyse_and_plot_data(data,figname):
                 ax1.plot(timeX, adc2mVChMax[:]-baseline)
             if ch==1:
                 ax2.plot(timeX, adc2mVChMax[:]-baseline)
+            if ch==2:
+                ax3.plot(timeX, adc2mVChMax[:]-baseline)
+            if ch==3:
+                ax4.plot(timeX, adc2mVChMax[:]-baseline)
+
             #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
             #ax2.plot(timeX, avwf-baseline)
 
@@ -452,36 +468,44 @@ def analyse_and_plot_data(data,figname):
     ax2.set_ylabel('Voltage (mV)')
     ax2.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
     
-    nbins=100
+    #Added 24/02
+    ax3.set_xlabel('Time(ns)')
+    ax3.set_ylabel('Voltage(mV)')
+    ax3.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
+    ax4.set_xlabel('Time (ns)')
+    ax4.set_ylabel('Voltage (mV)')
+    ax4.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)    
+
+   # nbins=100
     
-    ymax=0.15*float(nev)
-    xbins=np.linspace(0,1.6*chRange[0],nbins)
-    ax3.hist(wfrms,bins=xbins)
-    #ax3.set_ylim(0.8,ymax)
-    ax3.set_title('Pedestal RMS')
-    ax3.text(0.8*chRange[0],0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
-    ax3.set_xlabel('rms (mv)')
+   # ymax=0.15*float(nev)
+   # xbins=np.linspace(0,1.6*chRange[0],nbins)
+   # ax3.hist(wfrms,bins=xbins)
+   # #ax3.set_ylim(0.8,ymax)
+   # ax3.set_title('Pedestal RMS')
+   # ax3.text(0.8*chRange[0],0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
+   # ax3.set_xlabel('rms (mv)')
    
-    vRange = [-1,99]
-    if chRange[0]==5: vRange = [-10,490]
-    if chRange[0]==6: vRange = [-10,990]
-    xbins=np.linspace(vRange[0],vRange[1],nbins)
-    ax4.hist(vmax,bins=xbins)
-    ax4.text(25*chRange[0],0.2*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
-    #ax4.set_ylim(0,1)
-    #ax4.set_yscale('log')
-    ax4.set_title('Max Peak value')
-    ax4.set_xlabel('Max Voltage (mV)')
-    print('Mean of max height = ',vmax.mean(),' mV')
+   # vRange = [-1,99]
+   # if chRange[0]==5: vRange = [-10,490]
+   # if chRange[0]==6: vRange = [-10,990]
+   # xbins=np.linspace(vRange[0],vRange[1],nbins)
+   # ax4.hist(vmax,bins=xbins)
+   # ax4.text(25*chRange[0],0.2*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
+   # #ax4.set_ylim(0,1)
+   # #ax4.set_yscale('log')
+   # ax4.set_title('Max Peak value')
+   # ax4.set_xlabel('Max Voltage (mV)')
+   # print('Mean of max height = ',vmax.mean(),' mV')
     
-    ymax=0.08*float(nev)
-    xbins=np.linspace(-chRange[0]*16,75*chRange[0]*16,nbins)
-    ax5.hist(charge,bins=xbins)
-    #ax5.set_ylim(0.8,ymax)
-    #ax5.set_yscale('log')
-    ax5.text(40*chRange[0]*16,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
-    ax5.set_title('Integrated charge')
-    ax5.set_xlabel('Charge (mv*ns)')
+   # ymax=0.08*float(nev)
+   # xbins=np.linspace(-chRange[0]*16,75*chRange[0]*16,nbins)
+   # ax5.hist(charge,bins=xbins)
+   # #ax5.set_ylim(0.8,ymax)
+   # #ax5.set_yscale('log')
+   # ax5.text(40*chRange[0]*16,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
+   # ax5.set_title('Integrated charge')
+   # ax5.set_xlabel('Charge (mv*ns)')
     
     fig.savefig('/home/comet/Desktop/'+figname)
     plt.close(fig)
