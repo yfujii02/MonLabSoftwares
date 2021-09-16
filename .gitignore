@@ -5,3 +5,4 @@ picosdk-c-examples/
 */.ipynb_checkpoints/
 ana/*.pdf
 IVCurveData21/*
+slowcontrol/*.txt
