@@ -79,11 +79,9 @@ TimePeriod = int(args[6])#0 #How long voltage should remain at the specified lev
 
 NormIncrement = float(args[3])# 1.0 #voltage increment below the threshold
 
-ThresholdVoltage = int(args[4]) #75  #Voltage level after which it will increment in ThreshIncrement volts - set to be integer voltage
+ThresholdVoltage = float(args[4]) #75  #Voltage level after which it will increment in ThreshIncrement volts
 
 ThreshIncrement = float(args[5]) #0.2
-
-Increments = ThresholdVoltage+int((VoltageLevel-ThresholdVoltage)/ThreshIncrement)
 ###########################SETUP CONNECTION##################################################################
 #For when connection issues are occuring
 # if(ResetFlag==1): instrument.write("*RST")
@@ -98,29 +96,14 @@ VoltageRead = str(instrument.read()).split(',')
 print(VoltageRead)
 VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
 print(VoltageRead)
-
+########## Turn off voltage if it's non-zero at the beginning...
 if(VoltageRead>0.0):
-    while(VoltageRead>ThresholdVoltage):
-      voltagecommand='SOUR:VOLT '
-      VoltageRead-=0.2
-      voltagestr=str(VoltageRead)
-      voltagecommand+=voltagestr
-      sys.stdout.write("\r Voltage: %.2f V" % VoltageRead)
-      sys.stdout.flush()
-      #print(voltagecommand)
-      instrument.write(voltagecommand)
-      time.sleep(1)
-      instrument.write("INIT")
-      instrument.write("FORM:ELEM VSO")
-      instrument.write("READ?")
-      VoltageRead = str(instrument.read()).split(',')
-      #print(VoltageRead)
-      VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-      #print(VoltageRead)
-
     while(VoltageRead>0.0):
         voltagecommand='SOUR:VOLT '
-        VoltageRead-=2.0
+        if (VoltageRead>ThresholdVoltage):
+            VoltageRead-=0.2
+        else:
+            VoltageRead-=2.0
         if(VoltageRead<2.0):
            VoltageRead=0.0
         voltagestr=str(VoltageRead)
@@ -165,84 +148,59 @@ if(VoltageCheck==0):
         CurrentVoltage = VoltageRead #Keep track of voltage as increase it
         if(CurrentVoltage<VoltageLevel):
             while(CurrentVoltage<VoltageLevel):
+                voltagecommand='SOUR:VOLT '
                 if(CurrentVoltage<ThresholdVoltage):
-                    voltagecommand='SOUR:VOLT '
                     CurrentVoltage+=NormIncrement
-
-                    if(CurrentVoltage>VoltageLevel):
-                        CurrentVoltage=VoltageLevel
-                    CurrentVoltage = np.round(CurrentVoltage,2)
-                    voltagestr=str(CurrentVoltage)
-                    voltagecommand+=voltagestr
-                    sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
-                    sys.stdout.flush()
-                    #print(voltagecommand)
-                    instrument.write(voltagecommand)
-                    time.sleep(2)
-
                 elif(CurrentVoltage>=ThresholdVoltage):
-                    voltagecommand='SOUR:VOLT '
                     CurrentVoltage+=ThreshIncrement
 
-                    if(CurrentVoltage>VoltageLevel):
-                        CurrentVoltage=VoltageLevel
-
-                    CurrentVoltage = np.round(CurrentVoltage,2)
-                    voltagestr=str(CurrentVoltage)
-                    voltagecommand+=voltagestr
-                    sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
-                    sys.stdout.flush()
-                    #print(voltagecommand)
-                    instrument.write(voltagecommand)
-                    time.sleep(2)
+                if(CurrentVoltage>VoltageLevel):
+                    CurrentVoltage=VoltageLevel
+                CurrentVoltage = np.round(CurrentVoltage,2)
+                voltagestr=str(CurrentVoltage)
+                voltagecommand+=voltagestr
+                sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
+                sys.stdout.flush()
+                #print(voltagecommand)
+                instrument.write(voltagecommand)
+                time.sleep(2)
 
         elif(CurrentVoltage>VoltageLevel):
             while(CurrentVoltage>VoltageLevel):
+                voltagecommand='SOUR:VOLT '
                 if(CurrentVoltage>ThresholdVoltage):
-                    voltagecommand='SOUR:VOLT '
                     CurrentVoltage-=ThreshIncrement
-
-                    if(CurrentVoltage<VoltageLevel):
-                       CurrentVoltage=VoltageLevel
-                    CurrentVoltage = np.round(CurrentVoltage,2)
-                    voltagestr=str(CurrentVoltage)
-                    voltagecommand+=voltagestr
-                    sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
-                    sys.stdout.flush()
-                    #print(voltagecommand)
-                    instrument.write(voltagecommand)
-                    time.sleep(2)
-
                 elif(CurrentVoltage<=ThresholdVoltage):
                     voltagecommand='SOUR:VOLT '
                     CurrentVoltage-=NormIncrement
 
-                    if(CurrentVoltage<VoltageLevel):
-                        CurrentVoltage=VoltageLevel
-                    CurrentVoltage = np.round(CurrentVoltage,2)
-                    voltagestr=str(CurrentVoltage)
-                    voltagecommand+=voltagestr
-                    sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
-                    sys.stdout.flush()
-                    #print(voltagecommand)
-                    instrument.write(voltagecommand)
-                    time.sleep(2)
+                if(CurrentVoltage<VoltageLevel):
+                   CurrentVoltage=VoltageLevel
+                CurrentVoltage = np.round(CurrentVoltage,2)
+                voltagestr=str(CurrentVoltage)
+                voltagecommand+=voltagestr
+                sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
+                sys.stdout.flush()
+                #print(voltagecommand)
+                instrument.write(voltagecommand)
+                time.sleep(2)
 
         VoltageRead=VoltageLevel
         print("")
         print("Voltage now set to %f V"%(CurrentVoltage))
 
         if(TimePeriod!=0):
-          print("This voltage will be maintained for %d s"%(TimePeriod))
-          time.sleep(TimePeriod)
+            print("This voltage will be maintained for %d s"%(TimePeriod))
+            time.sleep(TimePeriod)
+            VoltageLevel=0
         else:
-          print("Enter next voltage (0 for ramp down): ")
-          VoltageLevel=float(input())
-          print("Now setting to %f V"%(VoltageLevel))
+            print("Enter next voltage (0 for ramp down): ")
+            VoltageLevel=float(input())
+            print("Now setting to %f V"%(VoltageLevel))
 
         if(VoltageLevel==0):
-          EndFlag=1
-          print("Ramping voltage down now!")
+            EndFlag=1
+            print("Ramping voltage down now!")
 
     ###################################Safely Ramp Down (if not 0 V)############################################
     instrument.write("INIT")
@@ -254,29 +212,14 @@ if(VoltageCheck==0):
     print(VoltageRead)
 
     if(VoltageRead>0.0):
-        while(VoltageRead>ThresholdVoltage):
-          voltagecommand='SOUR:VOLT '
-          VoltageRead-=0.2
-          voltagestr=str(VoltageRead)
-          voltagecommand+=voltagestr
-          sys.stdout.write("\r Voltage: %.2f V" %VoltageRead)
-          sys.stdout.flush()
-          #print(voltagecommand)
-          instrument.write(voltagecommand)
-          time.sleep(1)
-          instrument.write("INIT")
-          instrument.write("FORM:ELEM VSO")
-          instrument.write("READ?")
-          VoltageRead = str(instrument.read()).split(',')
-          #print(VoltageRead)
-          VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-          #print(VoltageRead)
-
         while(VoltageRead>0.0):
             voltagecommand='SOUR:VOLT '
-            VoltageRead-=2.0
+            if (VoltageRead>ThresholdVoltage):
+                VoltageRead-=0.2
+            else:
+                VoltageRead-=2.0
             if(VoltageRead<2.0):
-              VoltageRead=0.0
+                VoltageRead=0.0
             voltagestr=str(VoltageRead)
             voltagecommand+=voltagestr
             sys.stdout.write("\r Voltage: %.2f V" %VoltageRead)

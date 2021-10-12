@@ -15,10 +15,15 @@ threshold=100
 # Num of events per sub run
 # Thresholds in mV
 # DAQ mode (pedestal or selftrigger)
-readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
-#readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
+readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
+#trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 #Set B,C,D as trigger channels for scint-fibre tests 24/02
+
+#Set B as trigger channel for dark count test 17/09
+#trigchannel='0100'
+#Set all as trigger channel for scint test 12/10
+trigchannel='1111'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
@@ -47,7 +52,9 @@ genPulseRate=20  # in MHz
 # 8 = 5 V 
 # 9 = 10 V 
 #volRanges="6733"
-volRanges="6555"
+#volRanges="6555"
+#volRanges="2444" #2021 dark count test
+volRanges="2222" #12/10/21 scint test
 
 plotEachFig=False
 #plotEachFig=True
@@ -58,9 +65,13 @@ def setPlotEachFig(val):
     return val
 
 def initDAQ(mode):
+    print("000")
     myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
+    print("001")
     if mode==3:
+        print("002")
         myTestDAQ.set_pulseParam(int(genPulseV*1e6), int(genPulseRate*1e6))
+    print("003")
     myTestDAQ.init_daq()
     return True
 

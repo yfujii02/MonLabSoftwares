@@ -44,6 +44,7 @@ if(len(args)>1):
         sys.exit()
 if(ExitFlag==1): sys.exit()
 
+dOffset=256
 ############################################Initialisation Commands##############################################
 rm = visa.ResourceManager()
 print(rm.list_resources())
@@ -54,7 +55,7 @@ ResetFlag = int(args[1])
 instrument.baud_rate=9600
 instrument.write_termination = '\n'
 instrument.read_termination = '\n'
-measPoints=int(args[7]) #no. current measurements at each voltage
+measPoints=int(args[7])+dOffset #no. current measurements at each voltage
 triggerDelay = float(args[8])
 instrument.timeout=100*measPoints+triggerDelay
 #Setup command character terminations - basically the settings so that the PC and instrument
@@ -120,10 +121,8 @@ if(VoltageRead>0.0):
       instrument.write("FORM:ELEM VSO")
       instrument.write("READ?")
       VoltageRead = str(instrument.read()).split(',')
-      print(VoltageRead)
       VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-      print(VoltageRead)
-
+      
     while(VoltageRead>0.0):
         voltagecommand='SOUR:VOLT '
         VoltageRead-=2.0
@@ -139,9 +138,8 @@ if(VoltageRead>0.0):
         instrument.write("FORM:ELEM VSO")
         instrument.write("READ?")
         VoltageRead = str(instrument.read()).split(',')
-        print(VoltageRead)
         VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-        print(VoltageRead)
+        
 ##########################################################################################################
 instrument.write("*RST") #Reset instrument settings on instrument now that voltage safely at 0 V
 ############################################Measurement Function####################################
@@ -164,9 +162,7 @@ def TakeMeasurement(voltage):
     global MaxI
     sourceVoltage.append(voltage)
     print("Source V = ",voltage)
-    instrument.write("SOUR:VOLT:ILIM 2.5e-4") #Limit current?
-    instrument.write("SOUR:VOLT:STAT ON") #Turn voltage source on
-    time.sleep(2)
+    time.sleep(2+triggerDelay)
     instrument.write("SYST:ZCH OFF") #Turn zero checking off (zero checking is on it seems normally for changing the circuit)
     instrument.write("SYST:AZER:STAT OFF") #
     instrument.write("DISP:ENAB OFF") #Turn display off while setting up buffer
@@ -200,8 +196,8 @@ def TakeMeasurement(voltage):
     stdCurrent.append(np.std(CArray))
 
     #Global parameter updates
-    amplitude = (np.max(CArray)-np.min(CArray))/2.0
-    MaxI=np.max(CArray)
+    amplitude = (np.max(CArray[dOffset:])-np.min(CArray[dOffset:]))/2.0
+    MaxI=np.max(CArray[dOffset:])
    
     Data = np.array([sourceVoltage,averageCurrent,minCurrent,maxCurrent,stdCurrent])
     Data=np.transpose(Data)
@@ -237,7 +233,7 @@ def UpdatePlot(data,carray,tarray):
     #Offset guess based on mean of current data
     OffsetGuess = np.mean(carray)
 
-    params, params_covariance = optimize.curve_fit(InitFitFunc, tarray, carray,sigma=5e-10*np.ones(len(carray)), p0=[0.,OffsetGuess])
+    params, params_covariance = optimize.curve_fit(InitFitFunc, tarray[dOffset:], carray[dOffset:],sigma=5e-10*np.ones(len(carray[dOffset:])), p0=[0.,OffsetGuess])
     
     #optimize_func = lambda x: FitFunc(tarray,AmpGuess,FreqGuess,params[0],OffsetGuess) - carray
     
@@ -266,7 +262,7 @@ def UpdatePlot(data,carray,tarray):
     #Plot fit
     ax2.clear()
     ax2.scatter(tarray,carray)
-    ax2.plot(tarray,InitFitFunc(tarray,params[0],params[1]),color='r')
+    ax2.plot(tarray[dOffset:],InitFitFunc(tarray[dOffset:],params[0],params[1]),color='r')
     #ax2.plot(tarray,data_fit,color='b')
     ax2.set_title("I Data at %s V" %(voltagestr))
     ax2.set_xlabel("Time (s)")
@@ -280,7 +276,7 @@ def UpdatePlot(data,carray,tarray):
 #Setup
 #ZeroMeasurement()
 instrument.write("FORM:ELEM READ,TIME,VSO")#Read current, timestamp, voltage
-instrument.write("TRIG:DEL 0.0") #Trigger delay of 0
+instrument.write("TRIG:DEL 0.0") #Trigger delay of 0;;; IT'S NOT WORKING!!
 instrument.write("TRIG:COUN "+str(measPoints)) #Trigger count of 25
 instrument.write("NPLC .01")
 instrument.write("RANG 2e-6") #Current range of 2 uA
@@ -301,6 +297,8 @@ elif(VoltageLevel>=50.0 and VoltageLevel<500.0):
     print("Voltage Range: 500 V")
 else:
     VoltageCheck=1
+instrument.write("SOUR:VOLT:ILIM 2.5e-4") #Limit current?
+instrument.write("SOUR:VOLT:STAT ON") #Turn voltage source on
 ############################################################################################################
 EndFlag=0
 fig,(ax1,ax2) = plt.subplots(1,2)
@@ -312,11 +310,14 @@ while(EndFlag==0):
         CurrentVoltage = VoltageRead #Keep track of voltage as increase it
         if(CurrentVoltage<VoltageLevel):
             while(CurrentVoltage<VoltageLevel):
-                if(CurrentVoltage<ThresholdVoltage):
-                    voltagecommand='SOUR:VOLT '
+                voltagecommand='SOUR:VOLT '
+                if(CurrentVoltage<1.0):
+                    CurrentVoltage+=0.2
+                elif(CurrentVoltage<ThresholdVoltage and CurrentVoltage+NormIncrement>ThresholdVoltage ):
+                    CurrentVoltage=ThresholdVoltage
+                elif(CurrentVoltage<ThresholdVoltage):
                     CurrentVoltage+=NormIncrement
                 elif(CurrentVoltage>=ThresholdVoltage):
-                    voltagecommand='SOUR:VOLT '
                     CurrentVoltage+=ThreshIncrement
     
                 if(CurrentVoltage>VoltageLevel):
@@ -326,12 +327,12 @@ while(EndFlag==0):
                 voltagecommand+=voltagestr
                 sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
                 sys.stdout.flush()
-                instrument.write(voltagecommand)
+                instrument.write(voltagecommand) ##### voltage set
                 #time.sleep(5)
                 CurrentDataMeasurement,CurrentCurrent,CurrentTime = TakeMeasurement(CurrentVoltage)
                 print(CurrentDataMeasurement[len(CurrentDataMeasurement)-1])
                 UpdatePlot(CurrentDataMeasurement,CurrentCurrent,CurrentTime)
-                time.sleep(2)
+                time.sleep(1)
                 if (MaxI>0.3*2e-6):
                     instrument.write("RANG 2e-5") #Current range of 20 uA
                     print("Range changed to 2e-5")
@@ -356,7 +357,7 @@ while(EndFlag==0):
                     sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
                     sys.stdout.flush()
                     instrument.write(voltagecommand)
-                    time.sleep(2)
+                    time.sleep(1)
     
     
         VoltageRead=VoltageLevel
@@ -391,7 +392,7 @@ while(VoltageRead>ThresholdVoltage):
   sys.stdout.write("\r Voltage: %.2f V" % VoltageRead)
   sys.stdout.flush()
   instrument.write(voltagecommand)
-  time.sleep(2)
+  time.sleep(1)
 
 while(VoltageRead>0.0):
     voltagecommand='SOUR:VOLT '
@@ -403,7 +404,7 @@ while(VoltageRead>0.0):
     sys.stdout.write("\r Voltage: %.2f V" % VoltageRead)
     sys.stdout.flush()
     instrument.write(voltagecommand)
-    time.sleep(2)
+    time.sleep(1)
 
 ##########################################################################################################
 instrument.write("*RST") #Reset instrument settings on instrument now that voltage safely at 0 V

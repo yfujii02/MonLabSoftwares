@@ -6,3 +6,5 @@ picosdk-c-examples/
 ana/*.pdf
 IVCurveData21/*
 slowcontrol/*.txt
+LEDTest*
+DarkCountData*

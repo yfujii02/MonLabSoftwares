@@ -38,6 +38,9 @@ TimeOutFlag=False
 #postTriggerSamples = 256
 preTriggerSamples  = 100
 postTriggerSamples = 300
+##### for LED measurement 2021.09.30
+#preTriggerSamples  = 5
+#postTriggerSamples = 395
 maxSamples = preTriggerSamples + postTriggerSamples
 print('max samples',maxSamples)
 timebase=2 # 1.25GSPS
@@ -153,8 +156,11 @@ def open_scope():
     global connected
     # Opens the device/s
     if (connected==False):
+        print("008")
         status["openunit"] = ps.ps6000OpenUnit(ctypes.byref(chandle), None)
+        print("009")
         assert_pico_ok(status["openunit"])
+        print("010")
         connected=True
     
     # Displays the serial number and handle
@@ -518,15 +524,20 @@ def init_daq():
     global trig_ch_en
     global chRange
     TimeOutFlag=False
+    print("004")
     couplings=[ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"],
                ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"]]
     if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
     if runMode==3:
         trig_ch_en=[False,True,False,False] ### !!Temporary
+        print("005")
     #    couplings[1] = ps.PS6000_COUPLING["PS6000_DC_1M"]
 
+    print("006")
     if init==False:
+        print("007")
         open_scope()
+        print("008")
         for ch in range(4):
             if read_ch_en[ch]==True or trig_ch_en[ch]==True:
                 channel_init(ch,couplings[ch])
