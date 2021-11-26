@@ -15,7 +15,7 @@ import matplotlib.gridspec as gridspec
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 
 ############# Constant values
-chRange=[2,2,2,2] # ranges for each channel
+chRange=[2,2,2,2,2,6] # ranges for each channel
 # Voltage Ranges
 # 2 = 50 mV
 # 3 = 100 mV 
@@ -26,7 +26,7 @@ chRange=[2,2,2,2] # ranges for each channel
 # 8 = 5 V 
 # 9 = 10 V 
 # 10 = 20 V
-setCh=['setChA','setChB','setChC','setChD']
+setCh=['setChA','setChB','setChC','setChD','EXT','AUX']
 maxADC = ctypes.c_int16(32512)
 microsecond=1e-6
 polarity=-1
@@ -36,8 +36,8 @@ TimeOutFlag=False
 # Setting the number of sample to be collected
 #preTriggerSamples  = 256
 #postTriggerSamples = 256
-preTriggerSamples  = 100
-postTriggerSamples = 300
+preTriggerSamples  = 250
+postTriggerSamples = 150
 ##### for LED measurement 2021.09.30
 #preTriggerSamples  = 5
 #postTriggerSamples = 395
@@ -50,11 +50,12 @@ stopTime=startTime+windowSize
 autotriggerCounter = 0
 #autoTriggerMilliseconds = 7000
 autoTriggerMilliseconds=0 #set to 0 for low rate cosmic ray scint-fibre test 24/02/21
+plotEachFig=True
 
 nev     =100
 thr_mV  =10
 runMode =0
-nperplot=10
+nperplot=1
 genPulseV=1000    # in micro-volts
 genPulseRate=100  # in Hz
 
@@ -115,7 +116,7 @@ def set_params(var0,var1,var2,var3,var4,var5,var6):
         print('Wrong argument assigned for var6')
         exit()
     for ch in range(4): chRange[ch]=int(var6[ch])
-    nperplot = int(nev/10)+1 ## to show 10 waveforms per 1 run
+    #nperplot = int(nev/10) ## to show 10 waveforms per 1 run
     print('Number of events to be collected: ',nev)
 
 def sig_gen():
@@ -292,6 +293,7 @@ def set_simpleTrigger(value,channel,rise): # value= threhosld in mV,channel=sour
     global chandle
     direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
     if rise==True:direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_RISING"]
+    print("### ", channel)
     threshold  = mV2adc(value, chRange[channel], maxADC)
     Set='trigger'
     print('threshold=',value,', (', threshold,' in COUNT)')
@@ -555,13 +557,17 @@ def init_daq():
                 print("Illegal Trigger Channel: ",trigCh)
                 exit()
             print('Trigger ch: ',trigCh)
-            set_simpleTrigger(thr_mV,trigCh,True)
+            set_simpleTrigger(polarity*thr_mV,trigCh,True)
         if runMode==1: # negative polarity for SiPM signals
             polarity = -1
             set_advancedTrigger(thr_mV,trig_ch_en,False)
         if runMode==2: # positive polarity for other tests
             polarity = +1
             set_advancedTrigger(thr_mV,trig_ch_en,False)
+        if runMode==4: # Use AUX line for the triggering
+            #channel_init(5,couplings[0])
+            polarity = -1
+            set_simpleTrigger(polarity*thr_mV,ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"],True)
         init=True
     print("Polarity = ",polarity)
 

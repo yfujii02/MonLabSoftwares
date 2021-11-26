@@ -57,7 +57,6 @@ genPulseRate=20  # in MHz
 volRanges="2222" #12/10/21 scint test
 
 plotEachFig=False
-#plotEachFig=True
 
 def setPlotEachFig(val):
     global plotEachFig
@@ -106,10 +105,10 @@ def main():
         End = time.time()
         eTime = End-Start
         print("RunDaq Time = ", eTime)
-        if plotEachFig==True:
-            img = mpimg.imread('/home/comet/Desktop/figA.png')
-            imgplot = plt.imshow(img)
-            plt.show()
+        #if plotEachFig==True:
+        #    img = mpimg.imread('/home/comet/Desktop/figA.png')
+        #    imgplot = plt.imshow(img)
+        #    plt.show()
         TimeOutFlag=myTestDAQ.getTimeOutFlag()
         if(TimeOutFlag==True):
             print("Resetting DAQ...") 
@@ -131,6 +130,7 @@ if __name__ == "__main__":
         print("                     1: Two hits coincidence for negative signal")
         print("                     2: Two hits coincidence for positive signal")
         print("                     3: Channel B trigger + signal gen")
+        print("                     4: AUX trigger")
         print("     [4] : Output file name                  ")
         print("     [5] : Threshold in mV                   ")
         exit()
@@ -141,6 +141,7 @@ if __name__ == "__main__":
     print("                     1: Two hits coincidence for negative signal")
     print("                     2: Two hits coincidence for positive signal")
     print("                     3: Channel B trigger + signal gen")
+    print("                     4: AUX trigger")
     print('Output file name w/o ".XXX"      :',args[4])
     print('Threshold in mV                  :',args[5])
 
@@ -150,12 +151,13 @@ if __name__ == "__main__":
         print("You're wrong!")
         exit()
     daqMode=int(args[3])
-    if daqMode<0 or daqMode>3:
+    if daqMode<0 or daqMode>4:
         print("Invalid DAQ mode ", daqMode)
         print("                     0: pedestal trigger     ")
         print("                     1: Two hits coincidence for negative signal")
         print("                     2: Two hits coincidence for positive signal")
         print("                     3: Channel B trigger + signal gen")
+        print("                     4: AUX trigger")
         exit()
 
     fname=args[4]
