@@ -90,7 +90,8 @@ def PlotWaveforms(iData,Data,PlotList,String):
         for i in range(len(PlotList)):
             plt.plot(iData,Data[PlotList[i]],alpha=0.1)
     return
-def PlotFile(FName,PlotList):
+
+def PlotFile(FName):
     #Plotlist is a list of indices to plot, if 0 plot all
     plt.figure()
     plt.xlabel("Time (ns)")
@@ -98,46 +99,23 @@ def PlotFile(FName,PlotList):
     plt.title("Ch1")
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
 
-    DecodeChannels(FName)
-    
-    PlotListCheck=np.zeros(len(Ch1))
-    if(PlotList!=0):
-        for i in PlotList:
-            PlotListCheck[i]=1
-    else: PlotListCheck=np.ones(len(Ch1))
-    
-    for i in range(len(Ch1)):
-        if(PlotListCheck[i]==1): plt.plot(Ch1[i],alpha=0.1)
-        
-    if(NCh>1): 
-        plt.figure()
-        plt.xlabel("Time (a.u.)")
-        plt.ylabel("Voltage (mV)")
-        plt.title("Ch2")
-        for i in range(len(Ch2)):
-            if(PlotListCheck[i]==1):plt.plot(Ch2[i],alpha=0.1)
-    if(NCh>2): 
-        plt.figure()
-        plt.xlabel("Time (a.u.)")
-        plt.ylabel("Voltage (mV)")
-        plt.title("Ch3")
-        for i in range(len(Ch3)):
-            if(PlotListCheck[i]==1): plt.plot(Ch3[i],alpha=0.1)
-            
-    if(NCh>3): 
-        plt.figure()
-        plt.xlabel("Time (a.u.)")
-        plt.ylabel("Voltage (mV)")
-        plt.title("Ch4")
-        for i in range(len(Ch4)):
-            if(PlotListCheck[i]==1): plt.plot(Ch4[i],alpha=0.1)
-        
-        plt.figure()
-        plt.xlabel("Time (a.u.)")
-        plt.ylabel("Voltage (mV)")
-        plt.title("Summed Waveforms")
-        for i in range(len(ChSum)):
-            if(PlotListCheck[i]==1): plt.plot(ChSum[i],alpha=0.1)
+    Waveforms,SumWaveforms = DecodeChannels(FName)
+   
+    for ch in range(NCh): 
+        for i in range(len(Waveforms[ch])):
+            plt.figure()
+            plt.xlabel("Time (a.u.)")
+            plt.ylabel("Voltage (mV)")
+            plt.title("Ch "+str(ch))
+            plt.plot(Waveforms[ch][i],alpha=0.1)
+       
+        if NCh>1: 
+            plt.figure()
+            plt.xlabel("Time (a.u.)")
+            plt.ylabel("Voltage (mV)")
+            plt.title("Summed Waveforms")
+            for i in range(len(ChSum)):
+                plt.plot(ChSum[i],alpha=0.1)
                 
 
 def FileList(FPath):
@@ -168,9 +146,11 @@ def DecodeChannels(FName):
     if (FileLoaded==False):
         if(LoadFile(FName)==False):ErrorExit("DecodeChannels()")
     
-    ChDecoded = {[],[],[],[]}
-    
+    ChDecoded = [[],[],[],[]] ## empty list to store the waveforms
+   
+    ## Loop over the number of recorded events 
     for i in range(int(len(Data[:,0])/NCh)):
+        ## Loop over the different channels
         for j in range(NCh):
             ChDecoded[j].append(Data[NCh*i+j,:])
     
@@ -248,7 +228,7 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     
     ChDecoded,ChSum = DecodeChannels(FName)
     
-    NWaveforms = len(ChDecoded[1]) #All channels have same number of waveforms
+    NWaveforms = len(ChDecoded[0]) #All channels have same number of waveforms
     TRate = (HeaderInfo[0][4]/(HeaderInfo[0][3]-HeaderInfo[0][2]))
     
     for i in range(NWaveforms):
@@ -265,7 +245,6 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
         ChSumOut.append(ProcessAWaveform(ChSum[i],1,1))
     #print(ChSumOut)
     return TRate
-    
     
 def PlotRMS(FolderPath,String):
     #Plot histogram of baseline RMS for an entire folder of data
@@ -352,7 +331,6 @@ def AnalyseFolder(FPath,PlotFlag):
     ChHistData.append(Total_Bin)
     ChHistData.append(Total_N)
     
-    
     # Return data in form NCh, MeanTR, [ChABin,ChAN,...]
     ChHistData = np.array(ChHistData)
     
@@ -395,12 +373,14 @@ def CosmicSr90Analysis():
     
     return
 
-def MinIonisationCosmicData():
+def SetSignalWindow(sigL,sigU):
     global SigLower
     global SigUpper
     
-    SigLower = 150
-    SigUpper = 250
+    SigLower = sigL
+    SigUpper = sigU
+
+def MinIonisationCosmicData():
     
     #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Cosmic\\' 
     FolderPath = r'/home/comet/work/pico/Oct21//'
@@ -416,16 +396,6 @@ def MinIonisationCosmicData():
     plt.xlabel(XString)
     plt.ylabel("Count")
     
-    return
-    
-def TriggerData():
-    #Read and analyse data taken of the two trigger counters C1 and C2 as well as the sum of them C1C2
-    FolderPath = r'C:\Users\smdek2\MPPCTests2021\Oct18\C1\\'
-    AnalyseFolder(FolderPath,1)
-    FolderPath = r'C:\Users\smdek2\MPPCTests2021\Oct18\C2\\'
-    AnalyseFolder(FolderPath,1)
-    FolderPath = r'C:\Users\smdek2\MPPCTests2021\Oct18\C1C2\\'    
-    AnalyseFolder(FolderPath,1) 
     return
 
 def Pb210():    
@@ -465,9 +435,7 @@ def Pb210():
 
 #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
 #PlotRMS(FolderPath,"Sr90")
-#PlotFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy",0)
+#PlotFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
 
 CosmicSr90Analysis()
-#Pb210()
-#MinIonisationCosmicData()
 plt.show()
