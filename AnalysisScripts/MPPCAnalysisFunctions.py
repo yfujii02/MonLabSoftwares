@@ -19,29 +19,49 @@ import glob
 import math
 import sys
 
+class WfInfo:
+    'Base class to store the information extracted from each waveform'
+     ## ch     : channel
+     ## peakIdx: Peak index
+     ## height : Peak height
+     ## charge : Integrated charge
+     ## rms    : baseline RMS
+     def __init__(self, ch, peakIdx, height, charge, rms):
+         self.ch = ch
+         self.peakIdx = peakIdx
+         self.height  = height
+         self.charge  = charge
+         self.rms     = rms
+
 FileLoaded = False
 FileData   = []
 HeaderInfo = []
 ChData     = []
 RemoveNoisyEvents=True
-NCh = 0
+NCh   = 0
 
 #Global variables
 SigLower = 80
 SigUpper = 110
 
 NBins = 50 #Histogram bins used 
-RU  = 50 #Upper limit of histograms 
-RL = 5 #Lower limit of histograms 
-
-#Global RMS data arrays
-NoiseRMSA=[]
-NoiseRMSB=[]
-NoiseRMSC=[]
-NoiseRMSD=[]
+RU    = 50 #Upper limit of histograms 
+RL    =  5 #Lower limit of histograms 
 
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
+
+#### Basic functions
+def SetRMSCut(val):
+    global RMS_Cut
+    RMS_Cut = val
+
+def SetSignalWindow(sigL,sigU):
+    global SigLower
+    global SigUpper
+    
+    SigLower = sigL
+    SigUpper = sigU
 
 def ErrorExit(String):
     #Exit program with string saying where
@@ -75,28 +95,8 @@ def MovAvFilter(Signal):
     
     return Signal
  
-def PlotWaveforms(iData,Data,PlotList,String):
+def PlotWaveformsFromAFile(FName):
     #Plot all waveforms from a given file
-    #PlotList - if 0, plot all, otherwise treat as list to plot
-    #String - heading string
-    plt.figure()
-    plt.xlabel("Time (ns)")
-    plt.ylabel("Voltage (mV)")
-    plt.title(String)
-    if(PlotList==0):
-        for i in range(len(Data)):
-            plt.plot(iData,Data[i],alpha=0.1)
-    else:
-        for i in range(len(PlotList)):
-            plt.plot(iData,Data[PlotList[i]],alpha=0.1)
-    return
-
-def PlotFile(FName):
-    #Plotlist is a list of indices to plot, if 0 plot all
-    plt.figure()
-    plt.xlabel("Time (ns)")
-    plt.ylabel("Voltage (mV)")
-    plt.title("Ch1")
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
 
     Waveforms,SumWaveforms = DecodeChannels(FName)
@@ -109,13 +109,13 @@ def PlotFile(FName):
             plt.title("Ch "+str(ch))
             plt.plot(Waveforms[ch][i],alpha=0.1)
        
-        if NCh>1: 
-            plt.figure()
-            plt.xlabel("Time (a.u.)")
-            plt.ylabel("Voltage (mV)")
-            plt.title("Summed Waveforms")
-            for i in range(len(ChSum)):
-                plt.plot(ChSum[i],alpha=0.1)
+    if NCh>1: 
+        plt.figure()
+        plt.xlabel("Time (a.u.)")
+        plt.ylabel("Voltage (mV)")
+        plt.title("Summed Waveforms")
+        for i in range(len(ChSum)):
+            plt.plot(ChSum[i],alpha=0.1)
                 
 
 def FileList(FPath):
@@ -163,12 +163,11 @@ def DecodeChannels(FName):
     
     return ChDecoded, ChSum
     
-def ProcessAWaveform(Signal,Filter,FreqF):
+def ProcessAWaveform(Ch,Signal,Filter,FreqF):
     #Extract information from a signal waveform:
     #    (Peak index, Peak value, Integrated charge, Noise RMS, Noise flag
     #Filter - If 1, apply a moving average filter
     #FreqF - If 1, applies a FFT to remove high frequency components
-    WaveformInfo = []
     
     if(Filter==1): Signal = MovAvFilter(Signal)
     if(FreqF ==1): Signal = FFT(Signal)
@@ -183,11 +182,7 @@ def ProcessAWaveform(Signal,Filter,FreqF):
     ChargeVal = simps(Signal,ChT) # scipy integration function
     
     #Append outputs
-    WaveformInfo.append(PeakIndex)
-    WaveformInfo.append(PeakVal)
-    WaveformInfo.append(ChargeVal)
-    WaveformInfo.append(RMS)
-    return np.array(WaveformInfo)
+    return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS)
    
 def HistogramFit(x,*params):
     y = np.zeros_like(x)
@@ -233,46 +228,18 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     
     for i in range(NWaveforms):
         NoisyEvent=False
-        WfInfo=[[],[],[],[]]
+        wfInfo=[[],[],[],[]]
         #### check each channel
         for ch in range(NCh):
-            WfInfo[ch] = ProcessAWaveform(ChDecoded[i],1,1)
-            if (WfInfo[ch][3]>RMS_Cut): NoisyEvent=True
+            wfInfo[ch] = ProcessAWaveform(ch,ChDecoded[i],1,1)
+            if (wfInfo[ch].rms>RMS_Cut): NoisyEvent=True
 
         if (RemoveNoisyEvent==True and NoisyEvent===True): continue
         for ch in range(NCh):
-            ChOutputs[ch].append(WfInfo[ch])
-        ChSumOut.append(ProcessAWaveform(ChSum[i],1,1))
+            ChOutputs[ch].append(wfInfo[ch])
+        ChSumOut.append(ProcessAWaveform('Sum',ChSum[i],1,1))
     #print(ChSumOut)
     return TRate
-    
-def PlotRMS(FolderPath,String):
-    #Plot histogram of baseline RMS for an entire folder of data
-    #Use string to append to title of figures
-    Flist = FileList(FolderPath)
-    
-    #Set and reset data arrays
-    global NoiseRMSA
-    global NoiseRMSB
-    global NoiseRMSC
-    global NoiseRMSD
-    
-    NoiseRMSA=[]
-    if(NCh>1): NoiseRMSB=[]
-    if(NCh>2): NoiseRMSC=[]
-    if(NCh>3): NoiseRMSD=[]
-    
-    #Analyse folder
-    AnalyseFolder(FolderPath,0)
-    
-    #Plot individual channels
-    PlotHistogram(NoiseRMSA,10,0,50,String+" Baseline RMS Ch A")
-    if(NCh>1): PlotHistogram(NoiseRMSB,10,0,50,String+" Baseline RMS Ch B")
-    if(NCh>2): PlotHistogram(NoiseRMSC,10,0,50,String+" Baseline RMS Ch C")
-    if(NCh>3): PlotHistogram(NoiseRMSD,10,0,50,String+" Baseline RMS Ch D")
-    
-    return
-
 
 def AnalyseFolder(FPath,PlotFlag):
     #Analyse all data files in folder located at FPath
@@ -295,49 +262,26 @@ def AnalyseFolder(FPath,PlotFlag):
     MeanTR = np.mean(TriggerRates)
     
     ChHistData=[]
-    
-    ChA_Vals = CollectOutputs(ChAOut,1)
-    #SummedHist = ChA_Vals
-    
-    ChA_N, ChA_Bin = PlotHistogram(ChA_Vals,RU,RL,NBins,"Ch A")
-    
-    ChHistData.append(ChA_Bin)
-    ChHistData.append(ChA_N)
-    
-    if(NCh>1):
-        ChB_Vals =CollectOutputs(ChBOut,1)
-        #SummedHist += ChB_Vals
-        ChB_N, ChB_Bin = PlotHistogram(ChB_Vals,RU,RL,NBins,"Ch B")
-        ChHistData.append(ChB_Bin)
-        ChHistData.append(ChB_N)
-        
-    if(NCh>2):
-        ChC_Vals =CollectOutputs(ChCOut,1)
-        #SummedHist += ChC_Vals
-        ChC_N, ChC_Bin = PlotHistogram(ChC_Vals,RU,RL,NBins,"Ch C")
-        ChHistData.append(ChC_Bin)
-        ChHistData.append(ChC_N)
-        
-    if(NCh>3):
-        ChD_Vals =CollectOutputs(ChDOut,1)
-        #SummedHist += ChD_Vals
-        ChD_N, ChD_Bin = PlotHistogram(ChD_Vals,RU,RL,NBins,"Ch D")
-        ChHistData.append(ChD_Bin)
-        ChHistData.append(ChD_N)
+   
+    for ch in range(NCh): 
+        chDataArray = np.array(FileOutputs[ch])
+        nBins, vals = PlotHistogram(chDataArray.height,RU,RL,NBins,str(chDataArray[0].ch))
+        ChHistData.append(nBins)
+        ChHistData.append(vals)
         
     #Plot summed channel histogram
-    ChSum_Vals = CollectOutputs(ChSumOut,1)
-    Total_N, Total_Bin = PlotHistogram(ChSum_Vals,4*RU,4*RL,int(2.5*NBins),"Total") 
-    ChHistData.append(Total_Bin)
-    ChHistData.append(Total_N)
+    chDataArray = np.array(SumOutputs)
+    nBins, vals = PlotHistogram(chDataArray.height,4*RU,4*RL,int(2.5*NBins),str(chDataArray[0].ch)) 
+    ChHistData.append(nBins)
+    ChHistData.append(vals)
     
     # Return data in form NCh, MeanTR, [ChABin,ChAN,...]
     ChHistData = np.array(ChHistData)
-    
     return NCh, MeanTR, ChHistData 
 
 
 #Specific Analysis Functions - an analysis function for each data set!
+#### Leave this for an example
 def CosmicSr90Analysis():
     #Function to determine Sr90 spectrum from datasets of cosmic rays and Sr90 + cosmic rays
     
@@ -370,72 +314,11 @@ def CosmicSr90Analysis():
     plt.ylabel("Count")
     
     #Determine endpoint of spectrum?
-    
     return
-
-def SetSignalWindow(sigL,sigU):
-    global SigLower
-    global SigUpper
-    
-    SigLower = sigL
-    SigUpper = sigU
-
-def MinIonisationCosmicData():
-    
-    #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Cosmic\\' 
-    FolderPath = r'/home/comet/work/pico/Oct21//'
-    nch,TR,HistData = AnalyseFolder(FolderPath,1)
-    SumBins = HistData[8]
-    SumN = HistData[9]
-    
-    #Plot histogram using bar plot
-    plt.figure()
-    plt.bar(SumBins[:-1],SumN,width=SumBins[1]-SumBins[0], color='blue') 
-    plt.title("Strontium Spectrum")
-    plt.yscale('log')
-    plt.xlabel(XString)
-    plt.ylabel("Count")
-    
-    return
-
-def Pb210():    
-    #Analyse PB210 data   
- 
-    #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
-    FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
-    nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,1)
-    CosmicBins = CosmicHistData[8]
-    CosmicN = CosmicHistData[9]
-    
-    #Analyse lead data set
-    FolderPath = r'/home/comet/work/pico/Oct22//'
-    nch,PbTR,PbHistData = AnalyseFolder(FolderPath,1)
-    PbBins = PbHistData[8]
-    PbN = PbHistData[9]
-    
-    #Subtract cosmic spectrum from lead + cosmic spectrum
-    nCosmicN = CosmicTR*CosmicN/np.sum(CosmicN)
-    print("Mean cosmic trigger rate = ", CosmicTR)
-    nPbN = PbTR*PbN/np.sum(PbN)
-    print("Mean cosmic + Pb210 trigger rate = ", PbTR)
-    PbSpectrum = nPbN-nCosmicN    
-
-    #Plot histogram using bar plot
-    plt.figure()
-    plt.bar(PbBins[:-1],PbSpectrum,width=PbBins[1]-PbBins[0], color='blue') 
-    plt.title("Pb210 Spectrum")
-    plt.xlabel(XString)
-    plt.ylabel("Count")
-
-    return    
-
 
 #############Main - run analysis functions here
-
-
 #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
 #PlotRMS(FolderPath,"Sr90")
-#PlotFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
-
+#PlotWaveformsFromAFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
 CosmicSr90Analysis()
 plt.show()
