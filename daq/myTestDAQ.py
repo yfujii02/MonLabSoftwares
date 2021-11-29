@@ -6,6 +6,7 @@
 # This data is then plotted as mV against time in ns.
 
 #import sys
+import os
 import time
 import ctypes
 from picosdk.ps6000 import ps6000 as ps
@@ -100,10 +101,11 @@ def set_params(var0,var1,var2,var3,var4,var5,var6):
     global thr_mV
     global runMode
     global nperplot
-    global fname
+    global dname
     global read_ch_en
     global trig_ch_en
     global chRange
+    global fname
     nev     = var0
     thr_mV  = var1
     runMode = var2
@@ -585,8 +587,17 @@ def run_daq(sub,run):
     global TimeOutFlag
     global init
     global connected
-    if(run!=0): fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(run)+'_'+str(sub)+'.npy'
-    elif(run==0): fname_sub='/home/comet/work/pico/data/'+fname+'_'+str(sub)+'.npy'
+    path = '/home/comet/work/data/'+fname
+    # Check whether the specified path exists or not
+    isExist = os.path.exists(path)
+    print("Path name: ")
+    print(path)
+    if not isExist:
+        # Create a new directory because it does not exist 
+        os.makedirs(path)
+        print("The new directory is created!")
+    if(run!=0): fname_sub='/home/comet/work/data/'+fname+'/data'+str(run)+'_'+str(sub)+'.npy'
+    elif(run==0): fname_sub='/home/comet/work/data/'+fname+'/data'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')

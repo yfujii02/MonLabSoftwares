@@ -19,34 +19,69 @@ import glob
 import math
 import sys
 
-class WfInfo:
+class WfInfo(object):
     'Base class to store the information extracted from each waveform'
-     ## ch     : channel
-     ## peakIdx: Peak index
-     ## height : Peak height
-     ## charge : Integrated charge
-     ## rms    : baseline RMS
-     def __init__(self, ch, peakIdx, height, charge, rms):
-         self.ch = ch
-         self.peakIdx = peakIdx
-         self.height  = height
-         self.charge  = charge
-         self.rms     = rms
+    ## ch     : channel
+    ## peakIdx: Peak index
+    ## height : Peak height
+    ## charge : Integrated charge
+    ## rms    : baseline RMS
+    def __init__(self, ch, peakIdx, height, charge, rms):
+        self.ch = ch
+        self.peakIdx = peakIdx
+        self.height  = height
+        self.charge  = charge
+        self.rms     = rms
+    def ch(self):
+        return self.ch
+    def peakIdx(self):
+        return self.peakIdx
+    def height(self):
+        return self.height
+    def charge(self):
+        return self.charge
+    def rms(self):
+        return self.rms
+
+class ExtractWfInfo():
+    def __init__(self, wfList):
+        self.wfList = list(wfList)
+    def getWfAt(self,i):
+        wf = self.wfList[i]
+        #print(wf)
+        return wf
+    def getChannel(self,i):
+        return self.getWfAt(i).ch
+    def getHeight(self,i):
+        return self.getWfAt(i).height
+    def getCharge(self,i):
+        return self.getWfAt(i).charge
+
+    def getHeightArray(self):
+        heights=[]
+        for i in range(len(self.wfList)):
+            heights.append(self.getHeight(i))
+        return heights
+    def getChargeArray(self):
+        charges=[]
+        for i in range(len(self.wfList)):
+            charges.append(self.getHeight(i))
+        return charges
 
 FileLoaded = False
 FileData   = []
 HeaderInfo = []
-ChData     = []
-RemoveNoisyEvents=True
+WfData     = []
+RemoveNoisyEvent=True
 NCh   = 0
 
 #Global variables
 SigLower = 80
 SigUpper = 110
 
-NBins = 50 #Histogram bins used 
+NBins = 55 #Histogram bins used 
 RU    = 50 #Upper limit of histograms 
-RL    =  5 #Lower limit of histograms 
+RL    = -5 #Lower limit of histograms 
 
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
@@ -120,7 +155,7 @@ def PlotWaveformsFromAFile(FName):
 
 def FileList(FPath):
     #For a given folder path, return the files
-    FilePaths = str(FPath)+'*.npy' #file paths of every .npy file
+    FilePaths = str(FPath)+'/*.npy' #file paths of every .npy file
     FileList=glob.glob(FilePaths)
     
     return FileList
@@ -130,11 +165,11 @@ def LoadFile(FName):
     global FileData
     global HeaderInfo
     global NCh
-    global ChData
+    global WfData
     global FileLoaded
     FileData   = np.array(np.load(FName,allow_pickle=True))
     HeaderInfo = np.array([FileData[:6]])
-    ChData     = FileData[6]
+    WfData     = FileData[6]
     NCh        = int(HeaderInfo[0][1][0]+HeaderInfo[0][1][1]+HeaderInfo[0][1][2]+HeaderInfo[0][1][3])
     FileLoaded = True
     if (NCh<1 or NCh>4): return False
@@ -149,10 +184,10 @@ def DecodeChannels(FName):
     ChDecoded = [[],[],[],[]] ## empty list to store the waveforms
    
     ## Loop over the number of recorded events 
-    for i in range(int(len(Data[:,0])/NCh)):
+    for i in range(int(len(WfData[:,0])/NCh)):
         ## Loop over the different channels
         for j in range(NCh):
-            ChDecoded[j].append(Data[NCh*i+j,:])
+            ChDecoded[j].append(WfData[NCh*i+j,:])
     
     ## Make a summed waveform
     for i in range(NCh):
@@ -193,7 +228,7 @@ def HistogramFit(x,*params):
         y = y + amplitude * np.exp(-((x-mean)/sigma)**2)
     return y  
   
-def PlotHistogram(Data,RU,RL,NBins,String): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
+def PlotHistogram(Data,RU,RL,NBins,String,strData): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
     #Take collected channel data from all files to be analysed and plot histogram
     #Data for a given channel
     #RU,RL = range of histogram
@@ -206,7 +241,7 @@ def PlotHistogram(Data,RU,RL,NBins,String): #pdist,threshold,subplot,Ped_Peak,SP
     plt.figure()
     CurrentN,CurrentBins,_=plt.hist(Data,range=[RL,RU],bins=NBins,color=colour,alpha=alpha)
     plt.title(String)
-    plt.xlabel(XString)
+    plt.xlabel(strData)
     plt.ylabel("Count")
 
     return CurrentN , CurrentBins    
@@ -231,17 +266,17 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
         wfInfo=[[],[],[],[]]
         #### check each channel
         for ch in range(NCh):
-            wfInfo[ch] = ProcessAWaveform(ch,ChDecoded[i],1,1)
+            wfInfo[ch] = ProcessAWaveform(ch,ChDecoded[ch][i],1,1)
             if (wfInfo[ch].rms>RMS_Cut): NoisyEvent=True
 
-        if (RemoveNoisyEvent==True and NoisyEvent===True): continue
+        if (RemoveNoisyEvent==True and NoisyEvent==True): continue
         for ch in range(NCh):
             ChOutputs[ch].append(wfInfo[ch])
         ChSumOut.append(ProcessAWaveform('Sum',ChSum[i],1,1))
     #print(ChSumOut)
     return TRate
 
-def AnalyseFolder(FPath,PlotFlag):
+def AnalyseFolder(FPath,PlotFlag=False):
     #Analyse all data files in folder located at FPath
     #PlotFlag is an option to output histograms or not
     
@@ -262,16 +297,19 @@ def AnalyseFolder(FPath,PlotFlag):
     MeanTR = np.mean(TriggerRates)
     
     ChHistData=[]
-   
     for ch in range(NCh): 
-        chDataArray = np.array(FileOutputs[ch])
-        nBins, vals = PlotHistogram(chDataArray.height,RU,RL,NBins,str(chDataArray[0].ch))
+        dataArray = ExtractWfInfo(FileOutputs[ch])
+        print(dataArray)
+        heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
+        nBins, vals = PlotHistogram(heightArray,RU,RL,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
         
     #Plot summed channel histogram
-    chDataArray = np.array(SumOutputs)
-    nBins, vals = PlotHistogram(chDataArray.height,4*RU,4*RL,int(2.5*NBins),str(chDataArray[0].ch)) 
+    dataArray = ExtractWfInfo(SumOutputs)
+    print(dataArray)
+    heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
+    nBins, vals = PlotHistogram(heightArray,4*RU,4*RL,int(2.5*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
     ChHistData.append(nBins)
     ChHistData.append(vals)
     
@@ -288,14 +326,14 @@ def CosmicSr90Analysis():
     #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
     #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Cosmic\\' 
     FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
-    nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,1)
+    nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,True)
     CosmicBins = CosmicHistData[8]
     CosmicN = CosmicHistData[9]
     
     #Analyse strontium data set
     #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
     FolderPath=r'/home/comet/work/pico/ReverseStrontium//' 
-    nch,SrTR,SrHistData = AnalyseFolder(FolderPath,1)
+    nch,SrTR,SrHistData = AnalyseFolder(FolderPath,True)
     SrBins = SrHistData[8]
     SrN = SrHistData[9]
     
@@ -320,5 +358,5 @@ def CosmicSr90Analysis():
 #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
 #PlotRMS(FolderPath,"Sr90")
 #PlotWaveformsFromAFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
-CosmicSr90Analysis()
-plt.show()
+#CosmicSr90Analysis()
+#plt.show()
