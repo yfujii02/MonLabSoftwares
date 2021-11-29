@@ -86,6 +86,8 @@ RL    = -5 #Lower limit of histograms
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
 
+##def Initialise(): # to be implemented
+
 #### Basic functions
 def SetRMSCut(val):
     global RMS_Cut
@@ -182,7 +184,6 @@ def DecodeChannels(FName):
         if(LoadFile(FName)==False):ErrorExit("DecodeChannels()")
     
     ChDecoded = [[],[],[],[]] ## empty list to store the waveforms
-   
     ## Loop over the number of recorded events 
     for i in range(int(len(WfData[:,0])/NCh)):
         ## Loop over the different channels
@@ -247,6 +248,7 @@ def PlotHistogram(Data,RU,RL,NBins,String,strData): #pdist,threshold,subplot,Ped
     return CurrentN , CurrentBins    
 
 def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
+    global FileLoaded
     #Takes a file path and analyses all waveforms in the file
     #Returns an output with form [[PeakIndex, PeakValue, ChargeValue, BaselineRMS],...,[]] containing info for each waveform
         #PeakIndex   = Index within file of analysed value (i.e. index of signal peak)
@@ -256,9 +258,9 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     #This is returned for each channel separately
     if (FileLoaded==False): LoadFile(FName)
     
-    ChDecoded,ChSum = DecodeChannels(FName)
+    Waveforms,SumWaveforms = DecodeChannels(FName)
     
-    NWaveforms = len(ChDecoded[0]) #All channels have same number of waveforms
+    NWaveforms = len(Waveforms[0]) #All channels have same number of waveforms
     TRate = (HeaderInfo[0][4]/(HeaderInfo[0][3]-HeaderInfo[0][2]))
     
     for i in range(NWaveforms):
@@ -266,14 +268,16 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
         wfInfo=[[],[],[],[]]
         #### check each channel
         for ch in range(NCh):
-            wfInfo[ch] = ProcessAWaveform(ch,ChDecoded[ch][i],1,1)
+            wfInfo[ch] = ProcessAWaveform(ch,Waveforms[ch][i],1,1)
             if (wfInfo[ch].rms>RMS_Cut): NoisyEvent=True
 
         if (RemoveNoisyEvent==True and NoisyEvent==True): continue
         for ch in range(NCh):
             ChOutputs[ch].append(wfInfo[ch])
-        ChSumOut.append(ProcessAWaveform('Sum',ChSum[i],1,1))
+        ChSumOut.append(ProcessAWaveform('Sum',SumWaveforms[i],1,1))
     #print(ChSumOut)
+    ## Prepare to read the next file
+    FileLoaded = False
     return TRate
 
 def AnalyseFolder(FPath,PlotFlag=False):
