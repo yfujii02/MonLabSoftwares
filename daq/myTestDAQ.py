@@ -251,6 +251,8 @@ def set_advancedTrigger(value,chan_en,useAUX):
             maxthreshold = mV2adc(200, ch_range, maxADC)
         elif (ch_range==5):
             maxthreshold = mV2adc(500,ch_range,maxADC)
+        elif (ch_range==6):
+            maxthreshold = mV2adc(1000,ch_range,maxADC)
         elif (ch_range==7):
             maxthreshold = mV2adc(2000, ch_range, maxADC)
         print('threshold=',value,', (', threshold,' in COUNT)')
@@ -568,7 +570,7 @@ def init_daq():
             set_advancedTrigger(thr_mV,trig_ch_en,False)
         if runMode==4: # Use AUX line for the triggering
             #channel_init(5,couplings[0])
-            polarity = -1
+            polarity = +1
             set_simpleTrigger(polarity*thr_mV,ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"],True)
         init=True
     print("Polarity = ",polarity)

@@ -18,6 +18,7 @@ from scipy.integrate import simps
 import glob 
 import math
 import sys
+import os
 
 class WfInfo(object):
     'Base class to store the information extracted from each waveform'
@@ -76,17 +77,34 @@ RemoveNoisyEvent=True
 NCh   = 0
 
 #Global variables
-SigLower = 80
-SigUpper = 110
+SigLower = 0
+SigUpper = 400
+SigLowerRMS = 100
 
-NBins = 55 #Histogram bins used 
-RU    = 50 #Upper limit of histograms 
-RL    = -5 #Lower limit of histograms 
+NBins = 100 #Histogram bins used 
+RangeUpper    = 100 #Upper limit of histograms 
+RangeLower    = 0 #Lower limit of histograms 
 
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
 
 ##def Initialise(): # to be implemented
+
+#### Set the binnings and range for PlotHistogram
+def SetBins(nbins,upper,lower):
+    global NBins
+    global RangeUpper
+    global RangeLower
+    if (nbins<1):
+        print("ERROR! negative bin size is assigned")
+        return -1
+    if (upper<lower):
+        print("ERROR! upper limit must be greater than lower limit")
+        return -1
+    NBins = nbins
+    RangeUpper    = upper
+    RangeLower    = lower
+    return 0
 
 #### Basic functions
 def SetRMSCut(val):
@@ -159,7 +177,9 @@ def FileList(FPath):
     #For a given folder path, return the files
     FilePaths = str(FPath)+'/*.npy' #file paths of every .npy file
     FileList=glob.glob(FilePaths)
-    
+    size = os.path.getsize(FileList[len(FileList)-1])
+    print(size)
+    if(size==0):FileList = FileList[:-1] 
     return FileList
 
 def LoadFile(FName):
@@ -210,11 +230,11 @@ def ProcessAWaveform(Ch,Signal,Filter,FreqF):
     ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
     
     #Calculate RMS of baseline area before signal window
-    RMS = np.std(Signal[:SigLower])
+    RMS = np.std(Signal[:SigLowerRMS])
     
     #Extract output analysis parameter from waveform
-    PeakVal   = -np.min(Signal)
-    PeakIndex = np.argmin(Signal)
+    PeakVal   = -np.min(Signal[SigLower:SigUpper])
+    PeakIndex = np.argmin(Signal[SigLower:SigUpper])+SigLower
     ChargeVal = simps(Signal,ChT) # scipy integration function
     
     #Append outputs
@@ -229,10 +249,10 @@ def HistogramFit(x,*params):
         y = y + amplitude * np.exp(-((x-mean)/sigma)**2)
     return y  
   
-def PlotHistogram(Data,RU,RL,NBins,String,strData): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
+def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
     #Take collected channel data from all files to be analysed and plot histogram
     #Data for a given channel
-    #RU,RL = range of histogram
+    #RangeUpper,RangeLower = range of histogram
     #NBins = number of bins
     #String = title string on plot
     
@@ -240,7 +260,7 @@ def PlotHistogram(Data,RU,RL,NBins,String,strData): #pdist,threshold,subplot,Ped
     alpha = 0.5
     
     plt.figure()
-    CurrentN,CurrentBins,_=plt.hist(Data,range=[RL,RU],bins=NBins,color=colour,alpha=alpha)
+    CurrentN,CurrentBins,_=plt.hist(Data,range=[RangeLower,RangeUpper],bins=NBins,color=colour,alpha=alpha)
     plt.title(String)
     plt.xlabel(strData)
     plt.ylabel("Count")
@@ -305,7 +325,7 @@ def AnalyseFolder(FPath,PlotFlag=False):
         dataArray = ExtractWfInfo(FileOutputs[ch])
         print(dataArray)
         heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-        nBins, vals = PlotHistogram(heightArray,RU,RL,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
+        nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
         
@@ -313,7 +333,7 @@ def AnalyseFolder(FPath,PlotFlag=False):
     dataArray = ExtractWfInfo(SumOutputs)
     print(dataArray)
     heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-    nBins, vals = PlotHistogram(heightArray,4*RU,4*RL,int(2.5*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
+    nBins, vals = PlotHistogram(heightArray,4*RangeLower,4*RangeUpper,int(2.5*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
     ChHistData.append(nBins)
     ChHistData.append(vals)
     
@@ -322,45 +342,49 @@ def AnalyseFolder(FPath,PlotFlag=False):
     return NCh, MeanTR, ChHistData 
 
 
-#Specific Analysis Functions - an analysis function for each data set!
-#### Leave this for an example
+#### Following Specific Analysis Function should be moved to outside
+#### Leave this for an example, but please don't keep modifying and using this..
 def CosmicSr90Analysis():
     #Function to determine Sr90 spectrum from datasets of cosmic rays and Sr90 + cosmic rays
     
     #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
     #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Cosmic\\' 
-    FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
-    nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,True)
-    CosmicBins = CosmicHistData[8]
-    CosmicN = CosmicHistData[9]
+    #FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
+    #nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,True)
+    #CosmicBins = CosmicHistData[8]
+    #CosmicN = CosmicHistData[9]
     
     #Analyse strontium data set
     #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
-    FolderPath=r'/home/comet/work/pico/ReverseStrontium//' 
+    FolderPath=r'/home/comet/work/data/Dec13_TrigScintLargeScint_Sr90_SelfTrig50mV_Vb42_MinDist_2' 
+    FolderPath=r'/home/comet/work/data/Dec10_LargeScint_Sr90ColEdge_SelfTrig10mV_Vb42//'
+    FolderPath = r'/home/comet/work/data/Dec13_LargeScint_Cosmic_SmallTrigNearFibre_AUXTrig150mV_Vb42_MinDist'
     nch,SrTR,SrHistData = AnalyseFolder(FolderPath,True)
     SrBins = SrHistData[8]
     SrN = SrHistData[9]
     
     #Subtract cosmic spectrum from strontium + cosmic spectrum
-    nCosmicN = CosmicTR*CosmicN/np.sum(CosmicN)
-    print("Mean cosmic trigger rate = ", CosmicTR)
-    nSrN = SrTR*SrN/np.sum(SrN)
+    #nCosmicN = CosmicTR*CosmicN/np.sum(CosmicN)
+    #print("Mean cosmic trigger rate = ", CosmicTR)
+    #nSrN = SrTR*SrN/np.sum(SrN)
     print("Mean cosmic + Sr90 trigger rate = ", SrTR)
-    SrSpectrum = nSrN-nCosmicN    
+    #SrSpectrum = nSrN-nCosmicN    
 
     #Plot histogram using bar plot
-    plt.figure()
-    plt.bar(SrBins[:-1],SrSpectrum,width=SrBins[1]-SrBins[0], color='blue') 
-    plt.title("Reverse Strontium Spectrum")
-    plt.xlabel(XString)
-    plt.ylabel("Count")
+    #plt.figure()
+    #plt.bar(SrBins[:-1],SrSpectrum,width=SrBins[1]-SrBins[0], color='blue') 
+    #plt.title("Reverse Strontium Spectrum")
+    #plt.xlabel(XString)
+    #plt.ylabel("Count")
     
     #Determine endpoint of spectrum?
     return
 
-#############Main - run analysis functions here
-#FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
-#PlotRMS(FolderPath,"Sr90")
-#PlotWaveformsFromAFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
-#CosmicSr90Analysis()
-#plt.show()
+#################################################################################
+### Following commands are supposed to be done in your own analysis script.
+###  Please refer to myAna.py
+###FolderPath=r'/home/comet/work/data/Dec10_TrigScint_Sr90Col_SelfTrig50mV_Vb42_MinDist' 
+###PlotRMS(FolderPath,"Sr90")
+###PlotWaveformsFromAFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
+###CosmicSr90Analysis()
+###plt.show()

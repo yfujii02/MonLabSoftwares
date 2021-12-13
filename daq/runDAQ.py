@@ -23,7 +23,7 @@ readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in
 #Set B as trigger channel for dark count test 17/09
 #trigchannel='0100'
 #Set all as trigger channel for scint test 12/10
-trigchannel='1111'
+trigchannel='0000'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
@@ -54,7 +54,7 @@ genPulseRate=20  # in MHz
 #volRanges="6733"
 #volRanges="6555"
 #volRanges="2444" #2021 dark count test
-volRanges="2222" #12/10/21 scint test
+volRanges="3333" #13/12/21 scint test
 
 plotEachFig=False
 
