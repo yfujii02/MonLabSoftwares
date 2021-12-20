@@ -79,7 +79,12 @@ NCh   = 0
 #Global variables
 SigLower = 0
 SigUpper = 400
-SigLowerRMS = 100
+BaseUpper = 100
+
+### Flags for each filtering
+MovAvF = 0
+FreqF  = 0
+BaseF  = 0
 
 NBins = 100 #Histogram bins used 
 RangeUpper    = 100 #Upper limit of histograms 
@@ -91,7 +96,7 @@ RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
 ##def Initialise(): # to be implemented
 
 #### Set the binnings and range for PlotHistogram
-def SetBins(nbins,upper,lower):
+def SetBins(nbins,lower,upper):
     global NBins
     global RangeUpper
     global RangeLower
@@ -111,12 +116,14 @@ def SetRMSCut(val):
     global RMS_Cut
     RMS_Cut = val
 
-def SetSignalWindow(sigL,sigU):
+def SetSignalWindow(sigL,sigU,baseU=100):
     global SigLower
     global SigUpper
+    global BaseUpper
     
-    SigLower = sigL
-    SigUpper = sigU
+    SigLower  = sigL
+    SigUpper  = sigU
+    BaseUpper = baseU
 
 def ErrorExit(String):
     #Exit program with string saying where
@@ -124,7 +131,7 @@ def ErrorExit(String):
     sys.exit()
     return
 
-def FFT(Data):
+def FFTFilter(Data):
     #Apply fourier transform to a signal and cut all frequency components above a threshold    
     Samples = Data.size 
     dt = 0.8*10**-9
@@ -138,6 +145,10 @@ def FFT(Data):
     Signal = filteredsig.real
 
     return Signal
+
+def BaselineFilter(Signal):
+    base = np.mean(Signal[:BaseUpper])
+    return Signal-base
 
 def MovAvFilter(Signal):
     #Apply moving average filter to waveform
@@ -218,19 +229,39 @@ def DecodeChannels(FName):
         ChSum+=ChDecoded[i]
     
     return ChDecoded, ChSum
+
+### Enabling Moving Average Filter
+def EnableMovingAverageFilter():
+    global MovAvF
+    MovAvF = 1
+    return
+
+### Enabling FFT-based Filter
+def EnableFFTFilter():
+    global FreqF
+    FreqF = 1
+    return
+
+### Enabling Baseline subtraction
+def EnableBaselineFilter():
+    global BaseF
+    BaseF = 1
+    return
     
-def ProcessAWaveform(Ch,Signal,Filter,FreqF):
+def ProcessAWaveform(Ch,Signal):
     #Extract information from a signal waveform:
     #    (Peak index, Peak value, Integrated charge, Noise RMS, Noise flag
     #Filter - If 1, apply a moving average filter
     #FreqF - If 1, applies a FFT to remove high frequency components
-    
-    if(Filter==1): Signal = MovAvFilter(Signal)
-    if(FreqF ==1): Signal = FFT(Signal)
+   
+    #### Not so fure the following oder is the best or not 
+    if(MovAvF==1): Signal = MovAvFilter(Signal)
+    if(FreqF ==1): Signal = FFTFilter(Signal)
+    if(BaseF ==1): Signal = BaselineFilter(Signal)
     ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
     
     #Calculate RMS of baseline area before signal window
-    RMS = np.std(Signal[:SigLowerRMS])
+    RMS = np.std(Signal[:BaseUpper])
     
     #Extract output analysis parameter from waveform
     PeakVal   = -np.min(Signal[SigLower:SigUpper])
@@ -265,7 +296,7 @@ def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData): #pdist,thres
     plt.xlabel(strData)
     plt.ylabel("Count")
 
-    return CurrentN , CurrentBins    
+    return CurrentBins , CurrentN
 
 def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     global FileLoaded
@@ -288,13 +319,13 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
         wfInfo=[[],[],[],[]]
         #### check each channel
         for ch in range(NCh):
-            wfInfo[ch] = ProcessAWaveform(ch,Waveforms[ch][i],1,1)
+            wfInfo[ch] = ProcessAWaveform(ch,Waveforms[ch][i])
             if (wfInfo[ch].rms>RMS_Cut): NoisyEvent=True
 
         if (RemoveNoisyEvent==True and NoisyEvent==True): continue
         for ch in range(NCh):
             ChOutputs[ch].append(wfInfo[ch])
-        ChSumOut.append(ProcessAWaveform('Sum',SumWaveforms[i],1,1))
+        ChSumOut.append(ProcessAWaveform('Sum',SumWaveforms[i]))
     #print(ChSumOut)
     ## Prepare to read the next file
     FileLoaded = False
