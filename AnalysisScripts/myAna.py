@@ -54,7 +54,9 @@ def main():
             perr = np.sqrt(np.diag(pcov))
             print(popt)
             print(perr)
+            ymax = np.max(Moyal(xdata,*popt))
             plt.plot(xdata,Moyal(xdata,*popt),c='r',label='Landau')
+            plt.text(popt[1],1.5*ymax,str(r'$\mu$=%.2f $\pm$ %.2f' % (popt[1],perr[1])),fontsize=18)
     plt.show()
 
 if __name__ == "__main__":

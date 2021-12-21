@@ -53,7 +53,7 @@ def main():
         plt.plot(xval,SPPeaksGaus4(xval, *popt),c='r',label='4 Gaus')
         plt.xlim(-4,36)
         plt.ylim(0.2,popt[0]*1.2)
-        plt.text(15,popt[0]*0.6,str(r'1p.e.=%.2f $\pm$ %.2f' % (popt[9],perr[9])),fontsize=20)
+        plt.text(15,popt[0]*0.4,str(r'1p.e.=%.2f $\pm$ %.2f' % (popt[9],perr[9])),fontsize=18)
         plt.yscale('log')
     plt.show()
 
