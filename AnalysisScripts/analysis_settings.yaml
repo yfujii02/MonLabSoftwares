@@ -1,0 +1,13 @@
+---
+- AnalysisWindow:
+    Start   : 195
+    Stop    : 280
+    Baseline: 175
+- Filtering:
+    MovingAveragePoints: 24
+    FFTCutoffFrequency : 396
+- Histogram:
+    NumberOfBins: 228
+    LowerRange  :  -5
+    UpperRange  : 109
+    

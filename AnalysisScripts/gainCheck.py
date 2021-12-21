@@ -19,12 +19,13 @@ def main():
     trR = 0 ### Trigger Rate
     bins=[]
     vals=[]
+    analysisWindow,filtering,histogram=load_analysis_conf("analysis_settings.yaml")
     for f in folder:
         myFunc.SetRMSCut(1.25)
-        myFunc.SetBins(228,-5,109)
-        myFunc.SetSignalWindow(195,280,175) ## Signal window [start,stop] + Baseline end point
-        myFunc.EnableMovingAverageFilter(24)  ## Also set Number of averagint points
-        myFunc.EnableFFTFilter(396)         ## Cut-off frequency in MHz
+        myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
+        myFunc.SetSignalWindow(analysisWindow["Start"],analysisWindow["Stop"],analysisWindow["Baseline"])
+        myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
+        myFunc.EnableFFTFilter(filtering["FFTCutoffFrequency"])
         myFunc.EnableBaselineFilter()
         nch, trR, hData = myFunc.AnalyseFolder(f,False)
         #plt.show()
