@@ -9,6 +9,8 @@ import sys
 import numpy as np
 import MPPCAnalysisFunctions as myFunc
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from fitFunctions import Moyal
 
 folder=[]
 
@@ -41,6 +43,18 @@ def main():
         #print(vals[i])
         plt.bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
         plt.yscale('log')
+        if i==nch:
+            ### Try Laudau fitting
+            xdata = bins[i][:-1][bins[i][:-1]>100]
+            ydata = vals[i][bins[i][:-1]>100]
+            ydata = ydata[xdata<360]
+            xdata = xdata[xdata<360]
+            pini  = [1000,175,1]
+            popt,pcov =  curve_fit(Moyal, xdata=xdata,ydata=ydata,p0=pini,maxfev=5000)
+            perr = np.sqrt(np.diag(pcov))
+            print(popt)
+            print(perr)
+            plt.plot(xdata,Moyal(xdata,*popt),c='r',label='Landau')
     plt.show()
 
 if __name__ == "__main__":
