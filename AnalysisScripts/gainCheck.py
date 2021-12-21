@@ -9,8 +9,21 @@ import sys
 import numpy as np
 import MPPCAnalysisFunctions as myFunc
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 folder=[]
+
+def Gaus(x,height,centre,width):
+    return height*np.exp(-(x - centre)**2 / (2*width**2))
+
+####### Fitting with the four Gaussian functions with fixed intervals
+def SPPeaksGaus4(x,a0,a1,a2,a3,s0,s1,s2,s3,m0,gain):
+    val = 0
+    ampl  = [a0,a1,a2,a3]
+    sigma = [s0,s1,s2,s3]
+    for i in range(4):
+        val = val + Gaus(x, ampl[i],m0+i*gain,sigma[i])
+    return val
 
 def main():
     nch = 0 ### Number of channel, should be constant?
@@ -18,6 +31,7 @@ def main():
     bins=[]
     vals=[]
     for f in folder:
+        myFunc.SetRMSCut(1.25)
         myFunc.SetBins(228,-5,109)
         myFunc.SetSignalWindow(195,280,175) ## Signal window [start,stop] + Baseline end point
         myFunc.EnableMovingAverageFilter(24)  ## Also set Number of averagint points
@@ -34,12 +48,23 @@ def main():
             for i in range(int(len(hData)/2)):
                 vals[i] = vals[i]+hData[2*i+1]
         plt.close('all')
-    for i in range(len(bins)):
+    errFunc=[[],[],[],[],[]]
+    for i in range(len(bins)-1):
+        guess = [1024,512,256,128,2,2,2,2,0,4.1]
+        xdata = bins[i][:-1][bins[i][:-1]<15.5]
+        ydata = vals[i][bins[i][:-1]<15.5]
+        popt,pcov = curve_fit(SPPeaksGaus4, xdata=xdata, ydata=ydata, p0=guess, maxfev=5000,
+                              bounds = ((1,1,1,1, 0.1, 0.1, 0.1, 0.1, -1, 0.1),
+                                        (np.inf,np.inf,np.inf,np.inf, 4,4,4,4, 1, 5)) )
+        perr = np.sqrt(np.diag(pcov))
+        print("Single p.e. = %.2f +/- %.2f [mV]" % (popt[9],perr[9]))
         plt.figure()
-        #print(len(bins[i]),len(vals[i]))
-        #print(bins[i])
-        #print(vals[i])
         plt.bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
+        xval = np.linspace(-0.5*popt[9]+popt[8],popt[8]+3.5*popt[9],40)
+        plt.plot(xval,SPPeaksGaus4(xval, *popt),c='r',label='4 Gaus')
+        plt.xlim(-4,36)
+        plt.ylim(0.2,popt[0]*1.2)
+        plt.text(15,popt[0]*0.6,str(r'1p.e.=%.2f $\pm$ %.2f' % (popt[9],perr[9])),fontsize=20)
         plt.yscale('log')
     plt.show()
 

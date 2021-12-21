@@ -86,6 +86,9 @@ MovAvF = 0
 FreqF  = 0
 BaseF  = 0
 
+ThresholdFreq = 400 ## FFT cut-off frequency in MHz
+MNumber       = 20  ## moving average filter number
+
 NBins = 100 #Histogram bins used 
 RangeUpper    = 100 #Upper limit of histograms 
 RangeLower    = 0 #Lower limit of histograms 
@@ -121,9 +124,9 @@ def SetSignalWindow(sigL,sigU,baseU=100):
     global SigUpper
     global BaseUpper
     
-    SigLower  = sigL
-    SigUpper  = sigU
-    BaseUpper = baseU
+    SigLower  = sigL  - (MNumber-1)
+    SigUpper  = sigU  - (MNumber-1)
+    BaseUpper = baseU - (MNumber-1)
 
 def ErrorExit(String):
     #Exit program with string saying where
@@ -135,11 +138,10 @@ def FFTFilter(Data):
     #Apply fourier transform to a signal and cut all frequency components above a threshold    
     Samples = Data.size 
     dt = 0.8*10**-9
-    ThresholdFreq = 0.4e8
     fftV = fftpack.fft(Data)   
     samplefreq=fftpack.fftfreq(Samples, dt)
     Copy = fftV.copy()
-    Copy[np.abs(samplefreq)>ThresholdFreq]=0
+    Copy[np.abs(samplefreq)>ThresholdFreq*1e6]=0
     
     filteredsig=fftpack.ifft(Copy)
     Signal = filteredsig.real
@@ -152,8 +154,9 @@ def BaselineFilter(Signal):
 
 def MovAvFilter(Signal):
     #Apply moving average filter to waveform
-    MNumber = 20 #moving average filter number
-    CutEdges = 5 #cut edges off to account for filter effects
+    #MNumber = 20 #moving average filter number
+    #CutEdges = 5 #cut edges off to account for filter effects ##### FIXME should this be MNumber-1 to fully remove the effect??
+    CutEdges = MNumber-1 #cut edges off to account for filter effects ##### FIXME should this be MNumber-1 to fully remove the effect??
     
     moveavefilt=np.cumsum(np.insert(Signal,0,0))
     Signal=(moveavefilt[MNumber:]-moveavefilt[:-MNumber])/float(MNumber)
@@ -231,14 +234,18 @@ def DecodeChannels(FName):
     return ChDecoded, ChSum
 
 ### Enabling Moving Average Filter
-def EnableMovingAverageFilter():
+def EnableMovingAverageFilter(num):
     global MovAvF
-    MovAvF = 1
+    global MNumber
+    MovAvF  =  1
+    MNumber = num
     return
 
 ### Enabling FFT-based Filter
-def EnableFFTFilter():
+def EnableFFTFilter(CutOffFreq):
     global FreqF
+    global ThresholdFreq
+    ThresholdFreq = CutOffFreq
     FreqF = 1
     return
 
@@ -255,8 +262,8 @@ def ProcessAWaveform(Ch,Signal):
     #FreqF - If 1, applies a FFT to remove high frequency components
    
     #### Not so fure the following oder is the best or not 
+    if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
     if(MovAvF==1): Signal = MovAvFilter(Signal)
-    if(FreqF ==1): Signal = FFTFilter(Signal)
     if(BaseF ==1): Signal = BaselineFilter(Signal)
     ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
     
@@ -364,7 +371,7 @@ def AnalyseFolder(FPath,PlotFlag=False):
     dataArray = ExtractWfInfo(SumOutputs)
     print(dataArray)
     heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-    nBins, vals = PlotHistogram(heightArray,4*RangeLower,4*RangeUpper,int(2.5*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
+    nBins, vals = PlotHistogram(heightArray,4*RangeLower,4*RangeUpper,int(2*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
     ChHistData.append(nBins)
     ChHistData.append(vals)
     
