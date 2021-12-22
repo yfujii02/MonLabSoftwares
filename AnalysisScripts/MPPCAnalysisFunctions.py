@@ -190,7 +190,8 @@ def PlotWaveformsFromAFile(FName):
 def FileList(FPath):
     #For a given folder path, return the files
     FilePaths = str(FPath)+'/*.npy' #file paths of every .npy file
-    FileList=glob.glob(FilePaths)
+    FileList=glob.glob(FilePaths,recursive=True)
+    FileList.sort(key=os.path.getmtime)
     size = os.path.getsize(FileList[len(FileList)-1])
     print(size)
     if(size==0):FileList = FileList[:-1] 
