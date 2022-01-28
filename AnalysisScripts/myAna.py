@@ -8,16 +8,13 @@ folder=""
 def main():
     # folder=r'C:\Users\BemusedPopsicle\Desktop\Uni Stuff\ScinData\2021-11-*\\'
     # myFunc.AnalyseFolder(folder,False)
-    myFunc.CosmicSr90Analysis("Middle",Sr=0,Cosmic=1)
+
+    myFunc.CosmicSr90Analysis("Near Jacketed",Sr=0,Cosmic=1)
+
     # s = 0
     # folder=r'C:\Users\BemusedPopsicle\Desktop\Uni Stuff\ScinData\\'
-    # file = folder + r'2021-11-29-Strontium\ScintTestNov29_Sr90_AUXT35mV_2_35.npy'
-    # myFunc.PlotWaveformsFromAFile(file,fn=myFunc.FullAnalysis,SingleWf=s,title="Full Analysis ")
-    # myFunc.PlotWaveformsFromAFile(file,fn=myFunc.NoBaseline,SingleWf=s,title="No Baseline ")
-    # myFunc.PlotWaveformsFromAFile(file,SingleWf=s,title="Unprocessed ")
-    #b = myFunc.baselines
-    #print(np.mean(b),np.std(b))
-    #myFunc.PlotHistogram(b,np.max(b),np.min(b),30,'Baselines ({})'.format(len(b)),'Voltage [mv]')
+    # file=folder + r'2021-12-15-Far-Cosmic\data10.npy'
+    # myFunc.PlotWaveformsFromAFile(file,fn=myFunc.FullAnalysis,SingleWf=s,title="Far ")
     plt.show()
 
 if __name__ == "__main__":

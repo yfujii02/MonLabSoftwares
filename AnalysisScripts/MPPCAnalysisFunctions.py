@@ -14,6 +14,7 @@ from scipy import fftpack
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 from scipy.integrate import simps
+from scipy.stats import moyal
 
 import glob
 import math
@@ -137,17 +138,12 @@ def MovAvFilter(Signal):
 def BaselineFilter(Signal): #n is pretty arbitrary, just where peaks don't pop up yet
     n = 150 #number of data points from start to consider
     base = np.mean(Signal[:n])
-    return Signal - base #this is also a somewhat crude implementation
+    return Signal - base
 
-def FullAnalysis(Signal):
-    Signal = FFT(Signal)
+def FullAnalysis(Signal): # use this as a function to pass to PlotWaveformsFromAFile
+    Signal = FFT(Signal)  # not actually directly used in this file
     Signal = MovAvFilter(Signal)
     Signal = BaselineFilter(Signal)
-    return Signal
-
-def NoBaseline(Signal):
-    Signal = FFT(Signal)
-    Signal = MovAvFilter(Signal)
     return Signal
 
 def PlotWaveformsFromAFile(FName,fn=None,SingleWf=0,SplitCh=False,title=''):
@@ -234,12 +230,13 @@ def DecodeChannels(FName):
 def ProcessAWaveform(Ch,Signal,Filter,FreqF,Base):
     #Extract information from a signal waveform:
     #    (Peak index, Peak value, Integrated charge, Noise RMS, Noise flag
-    #Filter - If 1, apply a moving average filter
-    #FreqF - If 1, applies a FFT to remove high frequency components
+    #Filter - If True, apply a moving average filter
+    #FreqF - If True, applies a FFT to remove high frequency components
+    #Base - If True, estimates a low frequency voltage and subtracts it
 
-    if(Filter==1): Signal = MovAvFilter(Signal)
-    if(FreqF ==1): Signal = FFT(Signal)
-    if(Base  ==1): Signal = BaselineFilter(Signal)
+    if Filter: Signal = MovAvFilter(Signal)
+    if FreqF:  Signal = FFT(Signal)
+    if Base:   Signal = BaselineFilter(Signal)
     ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
 
     #Calculate RMS of baseline area before signal window
@@ -252,15 +249,6 @@ def ProcessAWaveform(Ch,Signal,Filter,FreqF,Base):
 
     #Append outputs
     return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS)
-
-def HistogramFitOld(x,*params):
-    y = np.zeros_like(x)
-    for i in range(0,len(params),3):
-        mean = params[i]
-        amplitude = params[i+1]
-        sigma = params[i+2]
-        y = y + amplitude * np.exp(-((x-mean)/sigma)**2)
-    return y
 
 def HistogramFit(x,*params):
     #n = number of peaks
@@ -287,7 +275,8 @@ def PlotHistogram(Data,RU,RL,NBins,String,strData): #pdist,threshold,subplot,Ped
     alpha = 0.5
 
     plt.figure()
-    CurrentN,CurrentBins,_=plt.hist(Data,range=[RL,RU],bins=NBins,color=colour,alpha=alpha)
+    CurrentN,CurrentBins,_=plt.hist(Data,bins=NBins,color=colour,alpha=alpha)#range=[RL,RU])
+    # I've removed range restrictions, but left the code commented if needed again
     plt.title(String)
     plt.xlabel(strData)
     plt.ylabel("Count")
@@ -338,6 +327,8 @@ def AnalyseFolder(FPath,RawHeightArray=False):
 
     FileOutputs = [[],[],[],[]]  # 4channels
     SumOutputs = []
+    if len(FList) == 0: # double checking files have been found as the error it would
+        ErrorExit("AnalyseFolder: No files found") # give otherwise was confusing
     for i in range(len(FList)):
         print("Analysing file:",FList[i][len(FPath)-1:])
         TRate = AnalyseSingleFile(FList[i],FileOutputs,SumOutputs)
@@ -354,40 +345,36 @@ def AnalyseFolder(FPath,RawHeightArray=False):
         print(dataArray)
         heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
         ChHeightData.append(heightArray)
-        vals, nBins = PlotHistogram(heightArray,RU,RL,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
-        ChHistData.append(nBins)
-        ChHistData.append(vals)
 
     #Plot summed channel histogram
     dataArray = ExtractWfInfo(SumOutputs)
     print(dataArray)
     heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
     ChHeightData.append(heightArray)
-    vals, nBins = PlotHistogram(heightArray,4*RU,4*RL,int(2.5*NBins),str(dataArray.getChannel(0)),"Peak height [mV]")
-    ChHistData.append(nBins)
-    ChHistData.append(vals)
 
     # Return data in form NCh, MeanTR, [ChABin,ChAN,...]
-    ChHistData = [np.array(ChHistData[i]) for i in range(len(ChHistData))]
-    if RawHeightArray: return NCh, MeanTR, ChHistData, ChHeightData
+    ChHistData = ChannelHistograms(ChHeightData)
+    # Histograms have been moved to ChannelHistograms for use in other Fns
+    if RawHeightArray: return NCh, MeanTR, ChHistData, np.array(ChHeightData)
+    # outputs the processed signal data as is for normalised PE fitting too
     return NCh, MeanTR, ChHistData
 
-def PE_Fitting(B,N,spacing,threshold,NPE,String):
-    #Input bins and counts and return single photoelectron analysis
-    #B = bins of histogram
-    #N = counts of histogram
-    #spacing = estimated spacing between peaks (in bins)
-    #threshold = minimum peak height (in counts)
-    #NPE = number of peaks in histogram to fit to (may struggle with more than two)
-    #String = string to title/label plot
+def ChannelHistograms(ChHeightArrays):
+    ChHistData = []
 
-    #Replot histogram using bar plot
-    fig = plt.figure()
-    plt.bar(B[:-1],N,width=B[1]-B[0], color='blue')
-    plt.title(String)
-    plt.xlabel(XString)
-    plt.ylabel("Count")
-    plt.savefig('pics/No Fit ' + String + '.png', bbox_inches='tight')
+    for ch in range(len(ChHeightArrays) - 1): # creates hists for each channel
+        vals,nBins = PlotHistogram(ChHeightArrays[ch],RU,RL,NBins,str(ch),"Peak height [mV]")
+        ChHistData.append(nBins)
+        ChHistData.append(vals)
+
+    vals,nBins = PlotHistogram(ChHeightArrays[-1],4*RU,4*RL,int(2.5*NBins),'Sum',"Peak height [mV]")
+    ChHistData.append(nBins) # last heightarray is always assumed to be for sum signals
+    ChHistData.append(vals)
+    return [np.array(ChHistData[i]) for i in range(len(ChHistData))] # avoids deprecation warning
+
+def MultiGaussianFit(B,N,String,properties): # applies fit of overlayed gaussians
+    # properties = [spacing,theshold,Number of PE Peaks]
+    spacing, threshold, NPE = properties
     peaks, _ = find_peaks(N, distance=spacing,height=threshold)
     NPE = np.min((NPE,len(peaks)))
     global NPks
@@ -440,7 +427,89 @@ def PE_Fitting(B,N,spacing,threshold,NPE,String):
     # print(popt)
     # print(p_sigma)
     print("Single P.E. : V = %.2f +- %.2f\n" %(popt[1],p_sigma[1]))
-    return
+    return popt[1],p_sigma[1]
+
+def LandauFit(B,N,String,properties): # ignores noise pedestal and applies moyal fit
+    # args of form [peak,scale,minimum x value to avoid noise pedestal]
+    peak1,scale1,threshold = properties
+    ind1 = np.abs(B - peak1).argmin()
+    NewB = B[B > threshold] # cuts off before threshold
+    NewN = N[-len(NewB) + 1:]
+    area = 1.2 * np.sum(NewN) * (NewB[1] - NewB[0])
+    # estimates ~85% of moyal area is covered by the histogram data
+
+    popt, pcov = curve_fit(ScaledMoyal,NewB[:-1],NewN,p0=[peak1,scale1,area])
+
+    fit = ScaledMoyal(NewB,*list(popt)) # plottable data from the fit
+    lw = 1
+
+    plt.plot(NewB,fit,'k--',linewidth=lw)
+    plt.title(String)
+    plt.savefig('pics/Landau Fit ' + String + '.png', bbox_inches='tight')
+
+    plt.figure() # plots log of N and the fit for better readability
+    plt.title(String)
+    plt.xlabel(XString)
+    plt.ylabel('Log of Count')
+    plt.bar(B[:-1],np.log10(N),width=B[1]-B[0], color='blue')
+    plt.plot(NewB,np.log10(fit),'k--',lw=1)
+    plt.ylim(top=1.1 * np.max(np.log10(N)),bottom=0)
+    plt.savefig('pics/Landau Fit Log ' + String + '.png', bbox_inches='tight')
+
+    p_sigma = np.sqrt(np.diag(pcov)) # print off moyal properties
+    npopt, np_sigma = list(np.round(popt,2)), list(np.round(p_sigma,2))
+    print('\nMoyal fit with peak at {} mV, scale {} and total area {}'.format(*npopt))
+    print('Uncertainties are {}, {} and {} respectively'.format(*np_sigma))
+    return popt,p_sigma
+
+def ScaledMoyal(x,*params): # just a moyal fit with an area scaling factor too
+    return params[2] * moyal.pdf(x,loc=params[0],scale=params[1])
+
+def PE_Fitting(B,N,FitFn,args,String):  #outdated name as Landau fit doesn't get PE peaks
+    #Input bins and counts and return single photoelectron analysis
+    #B = bins of histogram
+    #N = counts of histogram
+    #fitfn = Gaussian or Landau fit function
+    #args = guesses for the properties of the fitfn
+    #String = string to title/label plot
+
+    #Replot histogram using bar plot
+    fig = plt.figure()
+    plt.bar(B[:-1],N,width=B[1]-B[0], color='blue')
+    plt.title(String)
+    plt.xlabel(XString)
+    plt.ylabel("Count")
+    plt.savefig('pics/No Fit ' + String + '.png', bbox_inches='tight')
+    try:
+        return FitFn(B,N,String,args) # runs arbitrary fitting function
+    except:
+        print('Failed fitting\n')
+        return 0 # NPE will not run if any multi gaussian fits fail
+
+def NPE_Fitting(SinglePEs,FitFn,args,String,ChHeightData):
+    #Same as PE Fitting except uses each channel's PE peak value to scale
+    #each dataset and then sum them, only meant for the sum channel fitting
+    #B = bins of histogram
+    #N = counts of histogram
+    #fitfn = Gaussian or Landau fit function
+    #args = guesses for the properties of the fitfn
+    #String = string to title/label plot
+
+    SinglePEs = np.array(SinglePEs)
+    PERatio = SinglePEs[:,0] / SinglePEs[0,0]
+    ScaledData = ChHeightData[:-1] * PERatio[:,np.newaxis]
+    SumData = np.sum(ScaledData,axis=0)
+    SumHistData = ChannelHistograms([SumData])
+    B,N = SumHistData[0],SumHistData[1]
+
+    #Replot histogram using bar plot
+    fig = plt.figure()
+    plt.bar(B[:-1],N,width=B[1]-B[0], color='blue')
+    plt.title(String)
+    plt.xlabel(XString)
+    plt.ylabel("Count")
+    plt.savefig('pics/No Fit ' + String + '.png', bbox_inches='tight')
+    return FitFn(B,N,String,args) # runs arbitrary fitting function
 
 #Specific Analysis Functions - an analysis function for each data set!
 #### Leave this for an example
@@ -449,10 +518,12 @@ def CosmicSr90Analysis(run='',PE=True,Sr=True,Cosmic=False):
 
     #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
     RawHeightArray = True
-    DataPath = r'C:\Users\BemusedPopsicle\Desktop\Uni Stuff\ScinData'
-    FolderPath = DataPath + r'\2021-12-*-Middle-'
+    DataPath = r'C:\Users\BemusedPopsicle\Desktop\Uni Stuff\ScinData\\' # folder with all data
+    FolderPath = DataPath + r'2021-12-*-Near-Jacketed-' # specific folder(s) being run
 
     if run: run += ' '
+    if Sr and not Cosmic: run += 'Sr90 '
+    if Cosmic and not Sr: run += 'Cosmic ' # all just for formatting filenames and plots
 
     if Cosmic:
         Folder = FolderPath + r'Cosmic\\'
@@ -478,17 +549,30 @@ def CosmicSr90Analysis(run='',PE=True,Sr=True,Cosmic=False):
         SrSpectrum = nSrN-nCosmicN
 
     #Plot histogram using bar plot
-    PEHistData = CosmicHistData
-    PEHeightData = CosmicHeightData
-    if PE:
-        spacing = 3 # estimated distance between peaks
-        threshold = 100 # minimum counts to be a peak
+    if Sr and Cosmic: PEHeightData,PEHistData=CosmicHeightData,CosmicHistData #manual choice
+    if Sr and not Cosmic: PEHeightData,PEHistData = SrHeightData,SrHistData
+    if not Sr and Cosmic: PEHeightData,PEHistData = CosmicHeightData,CosmicHistData
+    if PE: # apply fitting to channel and sum histograms
+        spacing = 3 # estimated distance between peaks (MultiGaussian)
+        threshold = 100 # minimum counts to be a peak (MultiGaussian)
+        SinglePEs = []
+        FitFn = LandauFit # function for sum analysis
+        MGargs = [spacing,threshold,NPks] # args for channel fitting
+        if FitFn == MultiGaussianFit: args = [spacing,threshold,NPks] # args for sum fitting
+        if FitFn == LandauFit and 'Unjacketed' in run: args = [180,30,80]
+        if FitFn == LandauFit and 'Jacketed' in run: args = [70,20,29]
+
         for i in range(NCh):
-            title = run + 'Sr90 Channel ' + chr(ord('A') + i) + ' PE Peaks'
-            PE_Fitting(PEHistData[2*i],PEHistData[2*i+1],spacing,threshold,NPks,title)#,PEHeightData)
-        # PE_Fitting(PEHistData[8],PEHistData[9],spacing,threshold,NPks,'Sr90 Channel Sum PE Peaks')
-    if not (Sr or Cosmic): return
-    plt.figure()
+            title = run + 'Channel ' + chr(ord('A') + i) + ' PE Peaks'
+            SinglePEs.append(PE_Fitting(PEHistData[2*i],PEHistData[2*i+1],MultiGaussianFit,MGargs,title))
+
+        title = run + 'Channel Sum'
+        if 0 in SinglePEs: # make sure it only uses NPE if it can scale each dataset properly
+            PE_Fitting(PEHistData[8],PEHistData[9],FitFn,args,title)
+        else: NPE_Fitting(SinglePEs,FitFn,args,title,PEHeightData)
+
+    if not (Sr and Cosmic): return
+    plt.figure() # plots spectra if Sr and Cosmic datasets have been run together
     plt.bar(CosmicBins[:-1],nCosmicN,width=CosmicBins[1]-CosmicBins[0], color='blue')
     plt.title(run+"Strontium and Cosmic Spectrum")
     plt.ylabel("TR * Count")
