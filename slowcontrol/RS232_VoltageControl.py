@@ -1,8 +1,19 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 29/06/2020
-Last Updated: Thurs 23/07/20
+Last Updated: Thurs 09/02/22
 Author: Sam Dekkers
+
+Script for ramping up voltage on Keithley 6487 Picoammeter via an RS232 connection
+
+Arguments
+[1] = Reset Connection
+[2] = Voltage Level Required
+[3] = Voltage Increment Before Threshold
+[4] = Threshold Voltage
+[5] = Voltage Increment After Threshold
+[6] = Time Period Required (set to 0 to ignore this) 
+
 """
 import sys
 print(sys.path)
@@ -73,23 +84,22 @@ print(instrument.read('\n'))
 ##########################################################################################################
 ##########################VOLTAGE CONDITIONS#################################################################
 
-VoltageLevel = float(args[2])#83.8 #83.8 #How high voltage is to be set (V)
+VoltageLevel = float(args[2])#How high voltage is to be set (V)
 
-TimePeriod = int(args[6])#0 #How long voltage should remain at the specified level (s)
+TimePeriod = int(args[6])#How long voltage should remain at the specified level (s)
 
-NormIncrement = float(args[3])# 1.0 #voltage increment below the threshold
+NormIncrement = float(args[3])#Voltage increment below the threshold
 
-ThresholdVoltage = float(args[4]) #75  #Voltage level after which it will increment in ThreshIncrement volts
+ThresholdVoltage = float(args[4])#Voltage level after which it will increment in ThreshIncrement volts
 
-ThreshIncrement = float(args[5]) #0.2
+ThreshIncrement = float(args[5]) #Voltage increment after the threshold is reached
 ###########################SETUP CONNECTION##################################################################
-#For when connection issues are occuring
+#For when connection issues are occuring, debugging
 # if(ResetFlag==1): instrument.write("*RST")
 
 ###################################Safely Ramp Down (if not 0 V)############################################
 instrument.write("INIT")
 instrument.write("FORM:ELEM VSO")
-#print("HERE")
 instrument.write("READ?")
 time.sleep(0.5)
 VoltageRead = str(instrument.read()).split(',')
@@ -110,16 +120,14 @@ if(VoltageRead>0.0):
         voltagecommand+=voltagestr
         sys.stdout.write("\r Voltage: %.2f V" % VoltageRead)
         sys.stdout.flush()
-        #print(voltagecommand)
         instrument.write(voltagecommand)
         time.sleep(1)
         instrument.write("INIT")
         instrument.write("FORM:ELEM VSO")
         instrument.write("READ?")
         VoltageRead = str(instrument.read()).split(',')
-        #print(VoltageRead)
         VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-        #print(VoltageRead)
+        VoltageRead = np.round(VoltageRead,2)
 ##########################################################################################################
 instrument.write("*RST") #Reset instrument settings on instrument now that voltage safely at 0 V
 ######################################Start Voltage Ramp###############################################
@@ -142,7 +150,12 @@ if(VoltageCheck==0):
     instrument.write("SOUR:VOLT:ILIM 2.5e-4") #Limit current?
     instrument.write("SOUR:VOLT:STAT ON") #Turn voltage source on
     EndFlag=0
-
+    CompFlag=0 #Error flag
+    
+    #Track both reading and what should be
+    #CurrentVoltage = what the voltage should be
+    #VoltageReadOut = what the voltage read from the instrument is
+    
     while(EndFlag==0):
 
         CurrentVoltage = VoltageRead #Keep track of voltage as increase it
@@ -159,10 +172,28 @@ if(VoltageCheck==0):
                 CurrentVoltage = np.round(CurrentVoltage,2)
                 voltagestr=str(CurrentVoltage)
                 voltagecommand+=voltagestr
-                sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
-                sys.stdout.flush()
-                #print(voltagecommand)
                 instrument.write(voltagecommand)
+
+                #Read whether it actually is this voltage or some other error has occured...
+                instrument.write("INIT")
+                instrument.write("FORM:ELEM VSO")
+                instrument.write("READ?")
+                VoltageReadOut = str(instrument.read()).split(',')
+                VoltageReadOut = ((np.array(VoltageReadOut)).astype(np.float)[0]) #Convert results to float array
+                VoltageReadOut = np.round(VoltageReadOut,2)
+                
+                #Displays what voltage read from instrument is after sending most recent voltage increment
+                sys.stdout.write("\r Voltage: %.2f V" % VoltageReadOut)    
+                sys.stdout.flush()
+                
+                #If the voltage desired doesn't match the voltage read (e.g. instrument sends an error code back) this will
+                #set the voltage level target to 0.0 essentially breaking out immediately to ramp down   
+                if(VoltageReadOut!=CurrentVoltage and CompFlag==0):
+                    print("Error!")
+                    if(VoltageReadOut==-999.0): print("Current COMPL Error!") #add more specific codes here if we come across them?
+                    VoltageLevel=0.0
+                    CompFlag=1
+
                 time.sleep(2)
 
         elif(CurrentVoltage>VoltageLevel):
@@ -179,13 +210,27 @@ if(VoltageCheck==0):
                 CurrentVoltage = np.round(CurrentVoltage,2)
                 voltagestr=str(CurrentVoltage)
                 voltagecommand+=voltagestr
+               
+                instrument.write(voltagecommand)
+                
+                instrument.write("INIT")
+                instrument.write("FORM:ELEM VSO")
+                instrument.write("READ?")
+                VoltageReadOut = str(instrument.read()).split(',')
+                VoltageReadOut = (np.array(VoltageReadOut)).astype(np.float)[0] #Convert results to float array
+                VoltageReadOut = np.round(VoltageReadOut,2)
+                
                 sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
                 sys.stdout.flush()
-                #print(voltagecommand)
-                instrument.write(voltagecommand)
+                
+                if(VoltageReadOut!=CurrentVoltage and CompFlag==0):
+                    print("Error!")
+                    VoltageLevel=0.0
+                    if(VoltageReadOut==-999.0): print("Current COMPL Error!")
+                    CompFlag=1
+                
                 time.sleep(2)
 
-        VoltageRead=VoltageLevel
         print("")
         print("Voltage now set to %f V"%(CurrentVoltage))
 
@@ -193,11 +238,11 @@ if(VoltageCheck==0):
             print("This voltage will be maintained for %d s"%(TimePeriod))
             time.sleep(TimePeriod)
             VoltageLevel=0
-        else:
+        elif(CompFlag==0):
             print("Enter next voltage (0 for ramp down): ")
             VoltageLevel=float(input())
             print("Now setting to %f V"%(VoltageLevel))
-
+        
         if(VoltageLevel==0):
             EndFlag=1
             print("Ramping voltage down now!")
@@ -207,10 +252,10 @@ if(VoltageCheck==0):
     instrument.write("FORM:ELEM VSO")
     instrument.write("READ?")
     VoltageRead = str(instrument.read()).split(',')
-    print(VoltageRead)
     VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-    print(VoltageRead)
-
+    VoltageRead = np.round(VoltageRead,2)
+    if(CompFlag==1): VoltageRead=CurrentVoltage #if an error code is being read, cant use the readout to ramp down so use what it should have been to start ramping down
+   
     if(VoltageRead>0.0):
         while(VoltageRead>0.0):
             voltagecommand='SOUR:VOLT '
@@ -224,16 +269,16 @@ if(VoltageCheck==0):
             voltagecommand+=voltagestr
             sys.stdout.write("\r Voltage: %.2f V" %VoltageRead)
             sys.stdout.flush()
-            #print(voltagecommand)
             instrument.write(voltagecommand)
             time.sleep(1)
-            instrument.write("INIT")
-            instrument.write("FORM:ELEM VSO")
-            instrument.write("READ?")
-            VoltageRead = str(instrument.read()).split(',')
-            #print(VoltageRead)
-            VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
-            #print(VoltageRead)
+            if(CompFlag==0):
+                instrument.write("INIT")
+                instrument.write("FORM:ELEM VSO")
+                instrument.write("READ?")
+                VoltageRead = str(instrument.read()).split(',')
+                VoltageRead = (np.array(VoltageRead)).astype(np.float)[0] #Convert results to float array
+                VoltageRead = np.round(VoltageRead,2)
+
     instrument.write("*RST")
     print("")
     print("Voltage ramp complete!")

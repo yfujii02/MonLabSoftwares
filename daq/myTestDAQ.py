@@ -37,8 +37,11 @@ TimeOutFlag=False
 # Setting the number of sample to be collected
 #preTriggerSamples  = 256
 #postTriggerSamples = 256
-preTriggerSamples  = 250
-postTriggerSamples = 150
+#preTriggerSamples  = 250
+#postTriggerSamples = 150
+##### Test at Synchrotron
+preTriggerSamples  = 750
+postTriggerSamples = 3000
 ##### for LED measurement 2021.09.30
 #preTriggerSamples  = 5
 #postTriggerSamples = 395

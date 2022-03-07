@@ -54,7 +54,7 @@ genPulseRate=20  # in MHz
 #volRanges="6733"
 #volRanges="6555"
 #volRanges="2444" #2021 dark count test
-volRanges="3333" #13/12/21 scint test
+volRanges="5555" #13/12/21 scint test
 
 plotEachFig=False
 

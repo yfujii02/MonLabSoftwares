@@ -10,17 +10,18 @@ import numpy as np
 import MPPCAnalysisFunctions as myFunc
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from fitFunctions import Moyal
+from fitFunctions import Moyal,Gaus
 from loadSettings import load_analysis_conf
 
 folder=[]
+conffile="analysis_settings.yaml"
 
 def main():
     nch = 0 ### Number of channel, should be constant?
     trR = 0 ### Trigger Rate
     bins=[]
     vals=[]
-    analysisWindow,filtering,histogram=load_analysis_conf("analysis_settings.yaml")
+    analysisWindow,filtering,histogram=load_analysis_conf(conffile)
     for f in folder:
         myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(analysisWindow["Start"],analysisWindow["Stop"],analysisWindow["Baseline"])
@@ -44,11 +45,23 @@ def main():
         #print(bins[i])
         #print(vals[i])
         plt.bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
-        plt.yscale('log')
-        if i==nch:
+        plt.ylim(bottom=0.2)
+
+        if i<nch and i!=1  and histogram["GaussianFit"]==True:
+           xdata = bins[i][:-1]
+           ydata = vals[i]
+           p_guess = [60,1700,10]
+           popt,pcov = curve_fit(Gaus,xdata=xdata,ydata=ydata,p0=p_guess,maxfev=5000)
+           perr = np.sqrt(np.diag(pcov))
+           print(popt)
+           print(perr)
+           plt.plot(xdata,Gaus(xdata,*popt),color='k',linestyle='--')
+                       
+        if i==nch and histogram["LandauFit"]==True:
+            plt.yscale('log')
             ### Try Laudau fitting
-            xdata = bins[i][:-1][bins[i][:-1]>100]
-            ydata = vals[i][bins[i][:-1]>100]
+            xdata = bins[i][:-1][bins[i][:-1]>50]
+            ydata = vals[i][bins[i][:-1]>50]
             ydata = ydata[xdata<360]
             xdata = xdata[xdata<360]
             pini  = [1000,175,1]
@@ -64,7 +77,8 @@ def main():
 if __name__ == "__main__":
     args=sys.argv
     #### name of the folder where you have the data to be analysed
-    for i in range(len(args)-1):
-        folder.append(args[i+1])
+    conffile=args[1]
+    for i in range(len(args)-2):
+        folder.append(args[i+2])
     print(len(folder))
     main()

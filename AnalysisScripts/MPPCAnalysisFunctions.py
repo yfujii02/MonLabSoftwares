@@ -57,6 +57,9 @@ class ExtractWfInfo():
         return self.getWfAt(i).height
     def getCharge(self,i):
         return self.getWfAt(i).charge
+    #Added Feb 27 2022
+    def getPeakIndex(self,i):
+        return self.getWfAt(i).peakIdx
 
     def getHeightArray(self):
         heights=[]
@@ -68,6 +71,12 @@ class ExtractWfInfo():
         for i in range(len(self.wfList)):
             charges.append(self.getHeight(i))
         return charges
+    #Added Feb 27 2022
+    def getPeakIndexArray(self):
+        times=[]
+        for i in range(len(self.wfList)):
+            times.append(self.getPeakIndex(i))
+        return times
 
 FileLoaded = False
 FileData   = []
@@ -228,9 +237,9 @@ def DecodeChannels(FName):
     ## Make a summed waveform
     for i in range(NCh):
         ChDecoded[i] = np.array(ChDecoded[i])
-    ChSum = np.copy(ChDecoded[0])
+    ChSum = np.copy(ChDecoded[0]) #Copy Ch A
     for i in range(1,NCh):
-        ChSum+=ChDecoded[i]
+        ChSum+=ChDecoded[i] #Add Ch B,C,D
     
     return ChDecoded, ChSum
 
@@ -367,7 +376,15 @@ def AnalyseFolder(FPath,PlotFlag=False):
         nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
-        
+
+        #Added Feb 27 2022 - plotting time of peak in array (Ch B will have garbage so ignore)
+        timearray = 0.8*np.array(dataArray.getPeakIndexArray(),dtype=np.float) #
+        nBinsT, valsT = PlotHistogram(timearray,1000,2500,1500,str(dataArray.getChannel(0)),"Peak Time (ns)")
+        #ChHistData.append(nBinsT)
+        #ChHistData.append(valsT)        
+        TimePeak = nBinsT[np.argmax(valsT)]
+        print("PeakTime = %s ns" %(TimePeak))
+
     #Plot summed channel histogram
     dataArray = ExtractWfInfo(SumOutputs)
     print(dataArray)
