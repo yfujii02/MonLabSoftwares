@@ -33,6 +33,7 @@ microsecond=1e-6
 polarity=-1
 
 TimeOutFlag=False
+homeDir=os.environ["HOME"]
 
 # Setting the number of sample to be collected
 #preTriggerSamples  = 256
@@ -522,7 +523,7 @@ def analyse_and_plot_data(data,figname):
    # ax5.set_title('Integrated charge')
    # ax5.set_xlabel('Charge (mv*ns)')
     
-    fig.savefig('/home/comet/Desktop/'+figname)
+    fig.savefig(homeDir+'/Desktop/'+figname)
     plt.close(fig)
 
 ### Initialise channel A & B
@@ -592,7 +593,7 @@ def run_daq(sub,run):
     global TimeOutFlag
     global init
     global connected
-    path = '/home/comet/work/data/'+fname
+    path = homeDir+'/work/data/'+fname
     # Check whether the specified path exists or not
     isExist = os.path.exists(path)
     print("Path name: ")
@@ -601,8 +602,8 @@ def run_daq(sub,run):
         # Create a new directory because it does not exist 
         os.makedirs(path)
         print("The new directory is created!")
-    if(run!=0): fname_sub='/home/comet/work/data/'+fname+'/data'+str(run)+'_'+str(sub)+'.npy'
-    elif(run==0): fname_sub='/home/comet/work/data/'+fname+'/data'+str(sub)+'.npy'
+    if(run!=0): fname_sub=homeDir+'/work/data/'+fname+'/data'+str(run)+'_'+str(sub)+'.npy'
+    elif(run==0): fname_sub=homeDir+'/work/data/'+fname+'/data'+str(sub)+'.npy'
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')

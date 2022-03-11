@@ -95,8 +95,8 @@ MovAvF = 0
 FreqF  = 0
 BaseF  = 0
 
-ThresholdFreq = 400 ## FFT cut-off frequency in MHz
-MNumber       = 20  ## moving average filter number
+CutoffFreq = 400 ## FFT cut-off frequency in MHz
+MNumber    = 20  ## moving average filter number
 
 NBins = 100 #Histogram bins used 
 RangeUpper    = 100 #Upper limit of histograms 
@@ -150,7 +150,7 @@ def FFTFilter(Data):
     fftV = fftpack.fft(Data)   
     samplefreq=fftpack.fftfreq(Samples, dt)
     Copy = fftV.copy()
-    Copy[np.abs(samplefreq)>ThresholdFreq*1e6]=0
+    Copy[np.abs(samplefreq)>CutoffFreq*1e6]=0
     
     filteredsig=fftpack.ifft(Copy)
     Signal = filteredsig.real
@@ -252,10 +252,10 @@ def EnableMovingAverageFilter(num):
     return
 
 ### Enabling FFT-based Filter
-def EnableFFTFilter(CutOffFreq):
+def EnableFFTFilter(freq):
     global FreqF
-    global ThresholdFreq
-    ThresholdFreq = CutOffFreq
+    global CutoffFreq
+    CutoffFreq = freq
     FreqF = 1
     return
 
@@ -264,6 +264,17 @@ def EnableBaselineFilter():
     global BaseF
     BaseF = 1
     return
+
+ConstantFraction=0.1
+PeakThreshold=10
+### Get the index where waveform exceeds the certain threshold
+### Put the waveform, Wf[AnalysisWindow:PeakIdx+1] as Wf
+def GetEdgeTime(Wf,constantFraction=True):
+    threVal = PeakThreshold
+    if constantFraction==True:
+        threVal = ConstantFraction*np.max(Wf)
+    idx = np.max(np.where((Wf<threVal)))
+    return idx
     
 def ProcessAWaveform(Ch,Signal):
     #Extract information from a signal waveform:
