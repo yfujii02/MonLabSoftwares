@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
+import psModule as pm
 
 ############# Constant values
 chRange=[2,2,2,2,2,6] # ranges for each channel
@@ -36,13 +37,13 @@ TimeOutFlag=False
 homeDir=os.environ["HOME"]
 
 # Setting the number of sample to be collected
-#preTriggerSamples  = 256
-#postTriggerSamples = 256
+preTriggerSamples  = 2000
+postTriggerSamples = 2000
 #preTriggerSamples  = 250
 #postTriggerSamples = 150
 ##### Test at Synchrotron
-preTriggerSamples  = 750
-postTriggerSamples = 3000
+#preTriggerSamples  = 750
+#postTriggerSamples = 3000
 ##### for LED measurement 2021.09.30
 #preTriggerSamples  = 5
 #postTriggerSamples = 395
@@ -100,7 +101,7 @@ def set_pulseParam(var0,var1):
     genPulseRate=var1
     print('Pulse Voltage=',genPulseV*1e-3,' [mV], Pulse Rate=',genPulseRate*1e-6,' [MHz]')
 
-def set_params(var0,var1,var2,var3,var4,var5,var6):
+def set_params(var0,var1,var2,var3,var4,var5,var6,var7):
     global nev
     global thr_mV
     global runMode
@@ -110,6 +111,11 @@ def set_params(var0,var1,var2,var3,var4,var5,var6):
     global trig_ch_en
     global chRange
     global fname
+    global DevList
+    global nDevices
+    #Input list of devices
+    DevList = var7
+    nDevices = len(var7)
     nev     = var0
     thr_mV  = var1
     runMode = var2
@@ -157,14 +163,14 @@ def sig_gen():
     print('BuiltIn Sig Gen is activated')
     assert_pico_ok(status["SetSigGenBuiltIn"])
 
-def open_scope():
+def open_scope(device):
     global status
     global chandle
     global connected
     # Opens the device/s
     if (connected==False):
         print("008")
-        status["openunit"] = ps.ps6000OpenUnit(ctypes.byref(chandle), None)
+        status["openunit"] = pm.OpenUnit(chandle, device)
         print("009")
         assert_pico_ok(status["openunit"])
         print("010")
@@ -186,6 +192,7 @@ def channel_init(channel,coupling):
     # analogue offset = 0 V
     Set=setCh[channel]
     ch_range=chRange[channel]
+    print(status)
     status[Set] = ps.ps6000SetChannel(chandle, channel, 1, coupling, ch_range, 0, 0)
     print(Set,' ',ch_range,' ',coupling)
     assert_pico_ok(status[Set])
@@ -329,10 +336,11 @@ def get_single_event():
     global autotriggerCounter
     # Creates a overlow location for data
     overflow = ctypes.c_int16()
-
     # Handle = Chandle
     # nSegments = 1
     # nMaxSamples = ctypes.byref(cmaxSamples)
+    print(ctypes.byref(cmaxSamples))
+  
     status["MemorySegments"] = ps.ps6000MemorySegments(chandle, 1, ctypes.byref(cmaxSamples))
     assert_pico_ok(status["MemorySegments"])
     
@@ -340,6 +348,7 @@ def get_single_event():
     status["SetNoOfCaptures"] = ps.ps6000SetNoOfCaptures(chandle, 1)
     assert_pico_ok(status["SetNoOfCaptures"])
     
+    print(cmaxSamples) 
     # Starts the block capture
     # Handle = chandle
     # Number of prTriggerSamples
@@ -349,6 +358,11 @@ def get_single_event():
     # segment index = 0
     # LpRead = None
     # pParameter = None
+    
+    print(preTriggerSamples)
+    print(postTriggerSamples)
+    print(timebase)
+    print("#############################################")
     status["runBlock"] = ps.ps6000RunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, 0, None, 0, None, None)
     assert_pico_ok(status["runBlock"])
     
@@ -422,17 +436,12 @@ def analyse_and_plot_data(data,figname):
     vmax=np.array([])
     charge=np.array([])
     fig = plt.figure(figsize=(15,8))
-    #gs  = gridspec.GridSpec(3,3)
     gs = gridspec.GridSpec(4,4)
     ax1 = plt.subplot(gs[0,:])
     ax2 = plt.subplot(gs[1,:])
     ax3 = plt.subplot(gs[2,:])
     ax4 = plt.subplot(gs[3,:])
 
-    #I have changed this to view all channels... (24/02)
-    #ax3 = plt.subplot(gs[2,0])
-    #ax4 = plt.subplot(gs[2,1])
-    #ax5 = plt.subplot(gs[2,2])
 
     timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
     startTime2 = startTime + numAve
@@ -460,8 +469,6 @@ def analyse_and_plot_data(data,figname):
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            #if ch>0:continue #### plot only chA for now...
-            #if ch!=1:continue #### plot only chB for now...
             if (i%nperplot)!=0:continue
             if ch==0:
                 ax1.plot(timeX, adc2mVChMax[:]-baseline)
@@ -472,8 +479,6 @@ def analyse_and_plot_data(data,figname):
             if ch==3:
                 ax4.plot(timeX, adc2mVChMax[:]-baseline)
 
-            #ax2.plot(timeX[numAve-1:], avwf-baseline) if averaging is "ON"
-            #ax2.plot(timeX, avwf-baseline)
 
     dataToSave.append(waveforms)
 
@@ -492,36 +497,6 @@ def analyse_and_plot_data(data,figname):
     ax4.set_ylabel('Voltage (mV)')
     ax4.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)    
 
-   # nbins=100
-    
-   # ymax=0.15*float(nev)
-   # xbins=np.linspace(0,1.6*chRange[0],nbins)
-   # ax3.hist(wfrms,bins=xbins)
-   # #ax3.set_ylim(0.8,ymax)
-   # ax3.set_title('Pedestal RMS')
-   # ax3.text(0.8*chRange[0],0.4*ymax,r'$\mu=$'+f'{wfrms.mean():.2f}'+' mV',fontsize=12)
-   # ax3.set_xlabel('rms (mv)')
-   
-   # vRange = [-1,99]
-   # if chRange[0]==5: vRange = [-10,490]
-   # if chRange[0]==6: vRange = [-10,990]
-   # xbins=np.linspace(vRange[0],vRange[1],nbins)
-   # ax4.hist(vmax,bins=xbins)
-   # ax4.text(25*chRange[0],0.2*ymax,r'$\mu=$'+f'{vmax.mean():.2f}'+' mV',fontsize=12)
-   # #ax4.set_ylim(0,1)
-   # #ax4.set_yscale('log')
-   # ax4.set_title('Max Peak value')
-   # ax4.set_xlabel('Max Voltage (mV)')
-   # print('Mean of max height = ',vmax.mean(),' mV')
-    
-   # ymax=0.08*float(nev)
-   # xbins=np.linspace(-chRange[0]*16,75*chRange[0]*16,nbins)
-   # ax5.hist(charge,bins=xbins)
-   # #ax5.set_ylim(0.8,ymax)
-   # #ax5.set_yscale('log')
-   # ax5.text(40*chRange[0]*16,0.4*ymax,r'$\mu=$'+f'{charge.mean():.2f}',fontsize=12)
-   # ax5.set_title('Integrated charge')
-   # ax5.set_xlabel('Charge (mv*ns)')
     
     fig.savefig(homeDir+'/Desktop/'+figname)
     plt.close(fig)
@@ -537,6 +512,9 @@ def init_daq():
     print("004")
     couplings=[ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"],
                ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"]]
+    #couplings6000 = SetCouplings("6000")
+    #couplings3000 = SetCouplings("3000")
+
     if runMode==0: trig_ch_en=[False,False,True,False] ### !!Temporary
     if runMode==3:
         trig_ch_en=[False,True,False,False] ### !!Temporary
@@ -546,7 +524,8 @@ def init_daq():
     print("006")
     if init==False:
         print("007")
-        open_scope()
+        open_scope("6000")
+        #open_scope("3000")
         print("008")
         for ch in range(4):
             if read_ch_en[ch]==True or trig_ch_en[ch]==True:
@@ -607,6 +586,7 @@ def run_daq(sub,run):
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
     print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')
+    time.sleep(0.1)
     daqStartTime=time.time()
     for iev in range(nev):
         #adc2mVData=get_single_event()
@@ -620,7 +600,7 @@ def run_daq(sub,run):
             init = False
             connected = False
             break
-        time.sleep(100*microsecond) ### Trigger rate is limited to 10kHz here.
+        time.sleep(10*microsecond) ### Trigger rate is limited to 10kHz here.
     daqEndTime=time.time()
     
     print('Trigger rate = ', float(nev)/(daqEndTime-daqStartTime), ' Hz'), 

@@ -1,0 +1,29 @@
+---
+- DeviceSettings:
+   typeDev: "6000" #which picoscope series
+   numDev: "1" #which device if there are more than 1
+- DaqSettings:
+    Mode: 1 #DAQ run mode:1: single trigger mode
+    preSamples: 500 #number of samples before the trigger
+    postSamples: 500 #number of samples after the trigger
+    Tbase: 2 #timebase used 
+    fName: Test6000 #folder name for daq data collected
+    fPath: '/home/comet/work/data/' #base path to create folder within
+    Nevents: 100 #number of events per sub run of daq
+    Nsubruns: 10 #number of sub runs of daq
+- ChannelSettings:
+    # Voltage range reference
+    # 2 = 50 mV
+    # 3 = 100 mV 
+    # 4 = 200 mV
+    # 5 = 500 mV
+    # 6 = 1 V
+    # 7 = 2 V
+    # 8 = 5 V 
+    # 9 = 10 V 
+    Vrange: [2,2,2,2,6,6] #voltage range of each channel
+    Rstatus: "1111" #read status of each channel: 1 = yes, 0 = no
+    Tstatus: "000001" #trigger status of multiple channels: 1 = yes, 0 = no
+    Tsimple: 5 #if DAQ mode is one, select trigger channel
+    Tthresh: [0,0,0,0,0,500] #trigger threshold for each channel (mV)
+    Polarity: [1,1,1,1,1,1] #polarity settings for each channel as a trigger

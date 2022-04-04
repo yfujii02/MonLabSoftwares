@@ -24,7 +24,7 @@ readchannel="1000" # Trigger channels for ABCD. Corresponding channel is used in
 #Set B as trigger channel for dark count test 17/09
 #trigchannel='0100'
 #Set all as trigger channel for scint test 12/10
-trigchannel='0000'
+trigchannel='1000'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
@@ -56,9 +56,12 @@ genPulseRate=20  # in MHz
 #volRanges="6555"
 #volRanges="2444" #2021 dark count test
 #volRanges="5555" #13/12/21 scint test
-volRanges="2222" #13/12/21 scint test
+volRanges="3444" #13/12/21 scint test
 
 plotEachFig=False
+
+
+devList = ["6000"]
 
 def setPlotEachFig(val):
     global plotEachFig
@@ -67,7 +70,9 @@ def setPlotEachFig(val):
 
 def initDAQ(mode):
     print("000")
-    myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
+    #Adding additional parameter called device list
+    #myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
+    myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges,devList)
     print("001")
     if mode==3:
         print("002")
@@ -99,6 +104,8 @@ def setParameters(val0,val1,val2,val3,val4):
 
 def main():
     initDAQ(daqMode)
+    myTestDAQ.run_daq(10,0)
+    time.sleep(0.1)
     StartProgramTime = time.time() #So I can see how many events we get in the time we run for (24/02)    
     for i in range(num_subruns):
         print('Sub run: ',i,'/',num_subruns)

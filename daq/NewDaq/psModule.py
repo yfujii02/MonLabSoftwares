@@ -56,7 +56,6 @@ def SetThresholdDirection(rise,device):
 
 def SetSimpleTrigger(chandle,enable,channel,threshold,direction,delay,autoTrig,device):
     if device =="3000":
-        if channel==5: channel = 4 #3000 device uses external input instead of aux for our purposes
         return ps3.ps3000aSetSimpleTrigger(chandle,enable,channel,threshold,direction,delay,autoTrig)
     elif device == "6000":
         return ps6.ps6000SetSimpleTrigger(chandle,enable,channel,threshold,direction,delay,autoTrig)
@@ -156,6 +155,73 @@ def GetTimebase2(chandle,Timebase,nSamples,TimeInt,Oversample,maxSamples,Segment
         print("ERROR: Invalid Device (GetValues)")
         return
 
+def InitialChStates(device):
+    if(device=='3000'):
+        return [ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"],
+                ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"],
+                ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"],
+                ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"],
+                ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"],
+                ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]]
+    elif(device=='6000'):
+        return [ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
+                ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
+                ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
+                ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
+                ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"],
+                ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]]
+    else:
+        print("ERROR: Invalid Device (InitalChStates)")
+        return
 
+def UpdateTriggerState(state,device):
+    #returns a specified trigger state: 0: DONT_CARE, 1: TRUE, 2: FALSE, 3: MAX
+    if(device == '3000'):
+        if(state==0):
+            return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]
+        elif(state==1):
+            return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_TRUE"]
+        elif(state==2):
+            return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_FALSE"]
+        elif(state==3):
+            return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_MAX"]
+        else:
+            print('Invalid state! Setting to DONT_CARE')
+            return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]
+    elif(device == '6000'):
+        if(state==0):
+            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
+        elif(state==1):
+            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_TRUE"]
+        elif(state==2):
+            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_FALSE"]
+        elif(state==3):
+            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_MAX"]
+        else:
+            print('Invalid state! Setting to DONT_CARE')
+            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
+    else:
+        print('ERROR: Invalid Device (UpdateTriggerState)')
+        return
 
+def SetTriggerConditions(chandle,ch_states,pwq_state,ncond,device):
+    st = ch_states+pwq_state
+    if(device == '3000'):
+        TrigCons = ps3.PS3000A_TRIGGER_CONDITIONS(st[0],st[1],st[2],st[3],st[4],st[5],st[6])
+        return ps3.ps3000aSetTriggerChannelConditions(chandle,ctypes.byref(TrigCons),ncond)
+    elif(device == '6000'):
+        TrigCon = ps6.PS6000_TRIGGER_CONDITIONS(st[0],st[1],st[2],st[3],st[4],st[5],st[6])
+        return ps6.ps6000SetTriggerChannelConditions(chandle,ctypes.byref(TrigCons),ncond)
+    else:
+        print('ERROR: Invalid Device (SetTriggerConditions)')
+        return
+
+def SetTriggerDirections(chandle,ch_dirs,device):
+    d = ch_dirs
+    if(device == '3000'):
+        return ps3.ps3000aSetTriggerChannelConditions(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
+    elif(device == '6000'):
+        return ps6.ps6000SetTriggerChannelConditions(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
+    else:
+        print('ERROR: Invalid Device (SetTriggerDirections)')
 

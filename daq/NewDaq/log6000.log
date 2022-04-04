@@ -1,0 +1,19 @@
+ps3000a
+ps6000
+^^^ Picoscope libraries called ^^^
+Initial,  1648770198.809381
+After load settings file,  1648770198.8122709
+After set_params(),  1648770198.8122895
+Opening Pico_6000 #1
+Init Ch  0  with coupling  2
+Init Ch  1  with coupling  2
+Init Ch  2  with coupling  2
+Init Ch  3  with coupling  2
+Start time =  1648770203.4516673
+Sub run:  0 / 2
+Trigger rate =  12.716724625037683  Hz
+Run DAQ time =  8.685796737670898
+Sub run:  1 / 2
+Trigger rate =  99.2263789609901  Hz
+Run DAQ time =  1.7473666667938232
+{'OpenUnit_6000': 0, 'SetChA_6000': 0, 'SetChB_6000': 0, 'SetChC_6000': 0, 'SetChD_6000': 0, 'Trigger_6000_Ch_5': 0, 'TimeBase_6000': 0, 'MemSegments_6000': 0, 'SetNoOfCaptures_6000': 0, 'RunBlock_6000': 0, 'IsReady_6000': 0, 'SetDataBuffersB_6000': 0, 'GetValues_6000': 0, 'Stop_6000': 0, 'Close_6000': 0}

@@ -3,6 +3,7 @@ import sys
 import NewDAQ
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from multiprocessing import Process
 
 ### global parameters
 num_events=100
@@ -19,13 +20,15 @@ threshold=100
 #readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
 #trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 #Set B,C,D as trigger channels for scint-fibre tests 24/02
-readchannel =["1111","1111"]
+readchannel =["1111"]
+#readchannel =["1111"]
 #readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
 
 #Set B as trigger channel for dark count test 17/09
 #trigchannel='0100'
 #Set all as trigger channel for scint test 12/10
-trigchannel=["1000","1111"]
+trigchannel=["1111"]
+#trigchannel=["1111"]
 #trigchannel='1000'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
@@ -58,13 +61,15 @@ genPulseRate=20  # in MHz
 #volRanges="6555"
 #volRanges="2444" #2021 dark count test
 #volRanges="5555" #13/12/21 scint test
-volRanges=["3333","4444"]
+volRanges=["3333"]
+#volRanges=["4444"]
 #volRanges="3444" #13/12/21 scint test
 
 plotEachFig=False
 
 
-devList = ["3000","6000"]
+devList = ["3000"]
+#devList=["6000"]
 
 def setPlotEachFig(val):
     global plotEachFig
@@ -103,22 +108,27 @@ def setParameters(val0,val1,val2,val3,val4):
     readchannel="1100" # Temporary hardcoded
     trigchannel="0100" # Temporary hardcoded
     volRanges  ="6733" # Temporary hardcoded
-    setPlotEachFig(True)
+    setPlotEachFig(True) 
+
 
 def main():
     initDAQ(daqMode)
     StartProgramTime = time.time() #So I can see how many events we get in the time we run for (24/02)    
+    print("Start time = ",StartProgramTime)
     for i in range(num_subruns):
         print('Sub run: ',i,'/',num_subruns)
         Start = time.time()
-        NewDAQ.run_daq(i,0) #26/11 added run number to run_daq() - set to 0 when not required
+        processes=[]
+        for j in range(len(devList)):
+            p = Process(target=NewDAQ.run_daq(i,0,j))
+            p.start() 
+            processes.append(p)
+        
+        for p in processes: p.join()  
+          
         End = time.time()
         eTime = End-Start
         print("RunDaq Time = ", eTime)
-        #if plotEachFig==True:
-        #    img = mpimg.imread('/home/comet/Desktop/figA.png')
-        #    imgplot = plt.imshow(img)
-        #    plt.show()
         TimeOutFlag=NewDAQ.getTimeOutFlag()
         if(TimeOutFlag==True):
             print("Resetting DAQ...") 
@@ -127,7 +137,8 @@ def main():
             time.sleep(1)
             initDAQ()
         time.sleep(1)
-    NewDAQ.close()
+    for l in range(len(devList)):
+        NewDAQ.close(l)
 
 if __name__ == "__main__":
     args=sys.argv

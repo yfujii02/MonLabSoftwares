@@ -29,7 +29,7 @@ chRange=[2,2,2,2,2,6] # ranges for each channel
 # 9 = 10 V 
 # 10 = 20 V
 setCh=['setChA','setChB','setChC','setChD','EXT','AUX']
-maxADC = ctypes.c_int16(32512)
+maxADC = ctypes.c_int16(32512) #should be same for both 3000 and 6000?
 microsecond=1e-6
 polarity=-1
 
@@ -57,6 +57,7 @@ autotriggerCounter = 0
 #autoTriggerMilliseconds = 7000
 autoTriggerMilliseconds=0 #set to 0 for low rate cosmic ray scint-fibre test 24/02/21
 plotEachFig=True
+triggerChan=[4,5]
 
 nev     =100
 thr_mV  =10
@@ -69,12 +70,13 @@ daqStartTime=0
 daqEndTime  =0
 
 # Create chandle and status ready for use
-status = {}
+status = []
 chandle = ctypes.c_int16()
-connected=False
+connected=[]
 init=False
 
 timeIntervalns = ctypes.c_float()
+tInts = []
 # Creates converted types maxSamples
 cmaxSamples = ctypes.c_int32(maxSamples)
 fname=''
@@ -90,7 +92,9 @@ numAve=5
 #Added variables
 chRanges=[]
 DevList=[]
-nDevvices=0
+nDevices=0
+setDevList=[]
+status_list=[]
 
 def set_status(Array,DevList):
     status = []
@@ -122,11 +126,25 @@ def set_params(var0,var1,var2,var3,var4,var5,var6,var7):
     global chRanges
     global fname
     global DevList
+    global setDevList
     global nDevices
+    global status
+    global connected
+    global tInts
     #Input list of devices
     DevList = var7
     nDevices = len(var7)
+    #Creat SetDevList
+    for i in range(nDevices):
+        CurrentList =  [c + DevList[i] for c in setCh]
+        setDevList.append(CurrentList)
+        status.append({})
+        connected.append(False)
     
+    tInts = np.ones(nDevices) #initiate time interval array
+    print("Set Channel Status List: ",setDevList)  
+    
+   
     #Number of events
     nev     = var0
   
@@ -155,11 +173,11 @@ def set_params(var0,var1,var2,var3,var4,var5,var6,var7):
         if len(var6[i])!=4:
             print('Wrong argument assigned for var6 in device',DevList[i])
             exit()
-        tchRange = np.ones(4)
+        tchRange = np.ones(6)*6
         tVr = var6[i]
         print(tVr)
-        for ch in range(4): tchRange[ch]=int(tVr[ch])
-        chRanges.append(tchRange)
+        for ch in range(4): tchRange[ch]=tVr[ch]
+        chRanges.append(tchRange.astype(int))
         print("ChRange[i]")
         print(tchRange)
     print('Number of events to be collected: ',nev)
@@ -196,26 +214,28 @@ def sig_gen():
     print('BuiltIn Sig Gen is activated')
     assert_pico_ok(status["SetSigGenBuiltIn"])
 
-def open_scope(device):
+def open_scope(nDev):
+    #nDev = device no.
     global status
     global chandle
     global connected
     # Opens the device/s
-    if (connected==False):
+    if (connected[nDev]==False):
         print("008")
-        status["openunit"] = pm.OpenUnit(chandle, device)
+        DevOpen = "openunit"+DevList[nDev]
+        status[nDev][DevOpen] = pm.OpenUnit(chandle, DevList[nDev])
         print("009")
-        assert_pico_ok(status["openunit"])
+        assert_pico_ok(status[nDev][DevOpen])
         print("010")
-        connected=True
+        connected[nDev]=True
     
     # Displays the serial number and handle
     print(chandle.value)
 
-def channel_init(channel,coupling,device):
+def channel_init(channel,coupling,nDev):
     global status
     global chandle
-    print('Init ch %s in device %s' %(channel,device))
+    print('Init ch %s in device %s' %(channel,DevList[nDev]))
     # Set up channel A
     # handle = chandle
     # channel = ps6000_CHANNEL_A = 0
@@ -223,12 +243,17 @@ def channel_init(channel,coupling,device):
     # coupling type = ps6000_DC_50R = 2
     # range = ps6000_50MV = 3
     # analogue offset = 0 V
-    print("Made it here 2")
-    Set=setCh[channel]
-    ch_range=chRange[channel]
-    status[Set] = ps.ps6000SetChannel(chandle, channel, 1, coupling, ch_range, 0, 0)
+    print("Coupling = ",coupling)
+    Set=setDevList[nDev][channel]
+    ch_range=chRanges[nDev][channel]
+    Enable = 1
+    Offset = 0
+    Bandwidth = 0
+    print("Ch Range = ",ch_range)
+    status[nDev][Set] = pm.SetChannel(chandle, channel, Enable, coupling, ch_range, Offset, Bandwidth,DevList[nDev])
+    print(status)
     print(Set,' ',ch_range,' ',coupling)
-    assert_pico_ok(status[Set])
+    assert_pico_ok(status[nDev][Set])
     return True
 
 def set_advancedTrigger(value,chan_en,useAUX):
@@ -336,19 +361,31 @@ def set_advancedTrigger(value,chan_en,useAUX):
     assert_pico_ok(status["setPulseWidthQualifier"])
 
 ###### Simple threshold trigger
-def set_simpleTrigger(value,channel,rise): # value= threhosld in mV,channel=source channel,dir=direction
+def set_simpleTrigger(value,channel,rise,nDev):
+    # value= threshold in mV,channel=source channel,dir=direction, nDev = device no.
     global status
     global chandle
-    direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
-    if rise==True:direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_RISING"]
+    direction = pm.SetThresholdDirection(rise,DevList[nDev])
     print("### ", channel)
-    threshold  = mV2adc(value, chRange[channel], maxADC)
-    Set='trigger'
+    print(value)
+    print(type(value))
+    threshold  = mV2adc(value, chRanges[nDev][channel], maxADC)
+    print("HEEEEEEERE")
+    print(direction)
+    print(type(direction))
+    print(chRanges[nDev][channel])
+    print(type(chRanges[nDev][channel]))
+    Set='trigger'+DevList[nDev]
     print('threshold=',value,', (', threshold,' in COUNT)')
-    status["trigger"] = ps.ps6000SetSimpleTrigger(chandle, 1, channel, threshold, direction, 0, autoTriggerMilliseconds)
-    assert_pico_ok(status[Set])
+    Enable = 1
+    Delay = 0
+    AutoTrig = autoTriggerMilliseconds
+    print(Set)
+    status[nDev][Set] = pm.SetSimpleTrigger(chandle, Enable, channel, threshold, direction, Delay, AutoTrig,DevList[nDev])
+    print("Made it here 4")
+    assert_pico_ok(status[nDev][Set])
 
-def set_timebase(base):
+def set_timebase(base,nDev):
     # Gets timebase innfomation
     # Handle = chandle
     # Timebase = 2 = timebase
@@ -358,12 +395,17 @@ def set_timebase(base):
     # Segement index = 0
     global timebase
     global timeIntervalns
+    global tInts
     timebase = base
     returnedMaxSamples = ctypes.c_int16()
-    status["GetTimebase"] = ps.ps6000GetTimebase2(chandle, timebase, maxSamples, ctypes.byref(timeIntervalns), 1, ctypes.byref(returnedMaxSamples), 0)
-    assert_pico_ok(status["GetTimebase"])
+    SetGetTimebase="GetTimebase"+DevList[nDev]
+    Oversample=1
+    SegInd=0
+    status[nDev][SetGetTimebase] = pm.GetTimebase2(chandle, timebase, maxSamples, ctypes.byref(timeIntervalns),Oversample, ctypes.byref(returnedMaxSamples), SegInd,DevList[nDev])
+    tInts[nDev]=timeIntervalns.value
+    assert_pico_ok(status[nDev][SetGetTimebase])
 
-def get_single_event():
+def get_single_event(nDev):
     global status
     global cmaxSamples
     global autotriggerCounter
@@ -373,31 +415,43 @@ def get_single_event():
     # Handle = Chandle
     # nSegments = 1
     # nMaxSamples = ctypes.byref(cmaxSamples)
-    status["MemorySegments"] = ps.ps6000MemorySegments(chandle, 1, ctypes.byref(cmaxSamples))
-    assert_pico_ok(status["MemorySegments"])
+    SetMem = "MemorySegments"+DevList[nDev]
+    nSeg = 1
+    status[nDev][SetMem] = pm.MemorySegments(chandle, nSeg, ctypes.byref(cmaxSamples),DevList[nDev])
+    assert_pico_ok(status[nDev][SetMem])
     
     # sets number of captures
-    status["SetNoOfCaptures"] = ps.ps6000SetNoOfCaptures(chandle, 1)
-    assert_pico_ok(status["SetNoOfCaptures"])
+    SetCapture="SetNoOfCaptures"+DevList[nDev]
+    nCap = 1
+    status[nDev][SetCapture] = pm.SetCaptures(chandle, nCap, DevList[nDev])
+    assert_pico_ok(status[nDev][SetCapture])
     
     # Starts the block capture
     # Handle = chandle
     # Number of prTriggerSamples
     # Number of postTriggerSamples
     # Timebase = 2 = 4ns (see Programmer's guide for more information on timebases)
+    # timebase = 2 is 0.8 ns for 6000 and 4 ns for 3000
     # time indisposed ms = None (This is not needed within the example)
     # segment index = 0
     # LpRead = None
     # pParameter = None
-    status["runBlock"] = ps.ps6000RunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, 0, None, 0, None, None)
-    assert_pico_ok(status["runBlock"])
+    SetBlock = "runBlock"+DevList[nDev]
+    SegInd = 0
+    OverSample = 0
+    TimeIndis = None
+    LpReady = None
+    pParam = None
+    status[nDev][SetBlock] = pm.SetRunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, OverSample, TimeIndis, SegInd, LpReady, pParam,DevList[nDev])
+    assert_pico_ok(status[nDev][SetBlock])
     
     # Checks data collection to finish the capture
     ready = ctypes.c_int16(0)
     check = ctypes.c_int16(0)
     StartTime = time.time()
+    SetIsReady = "isReady"+DevList[nDev]
     while ready.value == check.value:
-        status["isReady"] = ps.ps6000IsReady(chandle, ctypes.byref(ready))
+        status[nDev][SetIsReady] = pm.IsReady(chandle, ctypes.byref(ready),DevList[nDev])
     EndTime = time.time()
     ElapsedTime = EndTime-StartTime
     #print("Elapsed time = ", ElapsedTime)
@@ -406,14 +460,18 @@ def get_single_event():
     # Create buffers ready for assigning pointers for data collection
     bufferMax=[[],[],[],[]]
     bufferMin=[[],[],[],[]]
-    status_str=["setDataBuffersA","setDataBuffersB","setDataBuffersC","setDataBuffersD"]
+    status_str=["setDataBuffersA"+DevList[nDev],"setDataBuffersB"+DevList[nDev],
+                "setDataBuffersC"+DevList[nDev],"setDataBuffersD"+DevList[nDev]]
+    DownSampRatioMode = 0
     for ch in range(4):
-        if read_ch_en[ch]==True:
+        if read_ch_en[nDev][ch]==True:
             bufferMax[ch] = (ctypes.c_int16 * maxSamples)()
             bufferMin[ch] = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
             # Setting the data buffer location for data collection from channel [ch]
-            status[status_str[ch]] = ps.ps6000SetDataBuffers(chandle, ch, ctypes.byref(bufferMax[ch]), ctypes.byref(bufferMin[ch]), maxSamples, 0)
-            assert_pico_ok(status[status_str[ch]])
+            status[nDev][status_str[ch]] = pm.SetDataBuffers(chandle, ch, ctypes.byref(bufferMax[ch]), 
+                                                             ctypes.byref(bufferMin[ch]), maxSamples, 
+                                                             SegInd,DownSampRatioMode,DevList[nDev])
+            assert_pico_ok(status[nDev][status_str[ch]])
     
     # Handle = chandle
     # noOfSamples = ctypes.byref(cmaxSamples)
@@ -422,8 +480,13 @@ def get_single_event():
     # DownSampleRatio = 1
     # DownSampleRatioMode = 0
     # Overflow = ctypes.byref(overflow)
-    status["getValues"] = ps.ps6000GetValues(chandle, 0, ctypes.byref(cmaxSamples), 1, 0, 0, ctypes.byref(overflow))
-    assert_pico_ok(status["getValues"])
+    SetGetValues = "getValues"+DevList[nDev]
+    StartIndex = 0
+    DownRatio = 1
+    status[nDev][SetGetValues] = pm.GetValues(chandle, StartIndex, ctypes.byref(cmaxSamples), DownRatio,
+                                              DownSampRatioMode, SegInd, ctypes.byref(overflow),
+                                              DevList[nDev])
+    assert_pico_ok(status[nDev][SetGetValues])
     
     #### Below is only option for bulk readout
     ## Handle = chandle
@@ -440,7 +503,7 @@ def get_single_event():
     #adc2mVChMax=[[],[],[],[]]
     data=[[],[],[],[]]
     for ch in range(4):
-        if read_ch_en[ch]==True:
+        if read_ch_en[nDev][ch]==True:
             #adc2mVChMax[ch]=adc2mV(bufferMax[ch], chRange[ch], maxADC)
             data[ch]=bufferMax[ch]
         else:
@@ -453,9 +516,9 @@ def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N])/ float(N)
 
-def analyse_and_plot_data(data,figname):
+def analyse_and_plot_data(data,figname,nDev):
     # Plots the data from channel A onto a graph
-    global dataToSave
+    #global dataToSave
 
     base=np.array([])
     wfrms=np.array([])
@@ -468,8 +531,8 @@ def analyse_and_plot_data(data,figname):
     ax3 = plt.subplot(gs[2,:])
     ax4 = plt.subplot(gs[3,:])
 
-
-    timeX = np.linspace(0, (cmaxSamples.value) * timeIntervalns.value, cmaxSamples.value)
+    TimeInt = tInts[nDev]
+    timeX = np.linspace(0, (cmaxSamples.value) * TimeInt, cmaxSamples.value)
     startTime2 = startTime + numAve
     stopTime2  = stopTime  + numAve
     chStatus=read_ch_en+trig_ch_en
@@ -480,8 +543,8 @@ def analyse_and_plot_data(data,figname):
     for i in range(nEvents):
         #print('###',i)
         for ch in range(4):
-            if read_ch_en[ch]==False: continue
-            adc2mVChMax=np.array(adc2mV(data[i][ch], chRange[ch], maxADC))
+            if read_ch_en[nDev][ch]==False: continue
+            adc2mVChMax=np.array(adc2mV(data[i][ch], chRanges[nDev][ch], maxADC))
             #avwf = polarity * running_mean(adc2mVChMax[:],numAve)
             avwf = polarity * adc2mVChMax ### Skip averaging to speed up the daq..
             baseline =avwf[:windowSize].mean()
@@ -490,7 +553,7 @@ def analyse_and_plot_data(data,figname):
                 base  = np.append(base, baseline)                     # mean value of the baseline
                 wfrms = np.append(wfrms, avwf[:windowSize].std())     # standard deviation
                 vmax  = np.append(vmax, avwf[startTime2:stopTime2].max()-baseline) # maximum voltage within the time window
-                charge= np.append(charge, chargeTmp*float(timeIntervalns.value))   # integrated charge
+                charge= np.append(charge, chargeTmp*float(TimeInt))   # integrated charge
             if len(waveforms)==0:
                 waveforms=np.transpose(adc2mVChMax)
             else:
@@ -510,22 +573,23 @@ def analyse_and_plot_data(data,figname):
 
     ax1.set_xlabel('Time (ns)')
     ax1.set_ylabel('Voltage (mV)')
-    ax1.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
+    ax1.set_xlim(-1,(cmaxSamples.value) * TimeInt + 1)
     ax2.set_xlabel('Time (ns)')
     ax2.set_ylabel('Voltage (mV)')
-    ax2.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
+    ax2.set_xlim(-1,(cmaxSamples.value) * TimeInt + 1)
     
     #Added 24/02
     ax3.set_xlabel('Time(ns)')
     ax3.set_ylabel('Voltage(mV)')
-    ax3.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)
+    ax3.set_xlim(-1,(cmaxSamples.value) * TimeInt + 1)
     ax4.set_xlabel('Time (ns)')
     ax4.set_ylabel('Voltage (mV)')
-    ax4.set_xlim(-1,(cmaxSamples.value) * timeIntervalns.value + 1)    
+    ax4.set_xlim(-1,(cmaxSamples.value) * TimeInt + 1)    
 
     
     fig.savefig(homeDir+'/Desktop/'+figname)
     plt.close(fig)
+    return dataToSave
 
 ### Initialise channel A & B
 def init_daq():
@@ -536,11 +600,14 @@ def init_daq():
     global chRanges
     global nDevices
     global DevList
+    global path
+    
+    path = homeDir+'/work/data/'+fname
     TimeOutFlag=False
-    print("004")
+    #print("004")
     #couplings=[ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"],
     #           ps.PS6000_COUPLING["PS6000_DC_50R"],ps.PS6000_COUPLING["PS6000_DC_50R"]]
-    print("FIRST TEST MADE HERE?")
+    #print("FIRST TEST MADE HERE?")
     couplings = []
     for i in range(nDevices):
         couplings.append(pm.SetCouplings(DevList[i]))
@@ -553,77 +620,103 @@ def init_daq():
 
     #print("006")
     if init==False:
-        print("007")
+        #print("007")
         for i in range(nDevices):
-            open_scope(DevList[i])
+            open_scope(i)
+            print("Opened Device Pico", DevList[i])
             read_current_dev = read_ch_en[i]
             trig_current_dev = trig_ch_en[i]
             couplings_current_dev = couplings[i]
 
             for ch in range(4):
                 if read_current_dev[ch]==True or trig_current_dev[ch]==True:
-                    channel_init(ch,couplings_current_dev[ch],DevList[i])
-            if runMode==3:
-                #sig_gen()
-                polarity=+1
+                    channel_init(ch,couplings_current_dev[ch],i) #added which device no. being set
+           
+            #if runMode==3:
+            #    #sig_gen()
+            #    polarity=+1
             ### pedestal run
-            if   runMode==0 or runMode==3:
-                trigCh=-1
-                for ch in range(4):
-                    if trig_ch_en[ch]==True:
-                        trigCh=ch
-                        break 
-                if trigCh<0 or trigCh>3:
-                    print("Illegal Trigger Channel: ",trigCh)
-                    exit()
-                print('Trigger ch: ',trigCh)
-                set_simpleTrigger(polarity*thr_mV,trigCh,True)
-            if runMode==1: # negative polarity for SiPM signals
-                polarity = -1
-                set_advancedTrigger(thr_mV,trig_ch_en,False)
-            if runMode==2: # positive polarity for other tests
-                polarity = +1
-                set_advancedTrigger(thr_mV,trig_ch_en,False)
+            #if  runMode==0 or runMode==3:
+            #    trigCh=-1
+            #    for ch in range(4):
+            #        if trig_current_dev[ch]==True:
+            #            trigCh=ch
+            #            break 
+            #    if trigCh<0 or trigCh>3:
+            #        print("Illegal Trigger Channel: ",trigCh)
+            #        exit()
+            #    print('Trigger ch: ',trigCh)
+            #    set_simpleTrigger(polarity*thr_mV,trigCh,True,i)
+            #if runMode==1: # negative polarity for SiPM signals
+            #    polarity = -1
+            #    set_advancedTrigger(thr_mV,trig_ch_en,False,i)
+            #if runMode==2: # positive polarity for other tests
+               # polarity = +1
+               # set_advancedTrigger(thr_mV,trig_ch_en,False,i)
+            
+            #Only tested external trigger functions so far...
             if runMode==4: # Use AUX line for the triggering
                 #channel_init(5,couplings[0])
                 polarity = +1
-                set_simpleTrigger(polarity*thr_mV,ps.PS6000_CHANNEL["PS6000_TRIGGER_AUX"],True)
+                print("Checking...")
+                print(polarity*thr_mV)
+                print(type(polarity*thr_mV))
+                set_simpleTrigger(polarity*thr_mV,5,True,i)
+            else: print("Not tested this mode for multiple devices yet...")
             init=True
-        print("Polarity = ",polarity)
+        #print("Polarity = ",polarity)
+            #Make a path for each device
+            DevPath = path+'/pico'+DevList[i]
+            #Check whether the specified path exists or not
+            isExist = os.path.exists(DevPath)
+            print("Path name: ")
+            print(DevPath)
+            if not isExist:
+               #Create a new directory because it does not exist 
+               os.makedirs(DevPath)
+               print("The new directory is created!")
+
 
 def getTimeOutFlag():
     return TimeOutFlag
 
-def run_daq(sub,run):
-    set_timebase(2) ## 1.25GSPS
+def run_daq(sub,run,nDev):
+    set_timebase(2,nDev) ## 1.25GSPS
     data=[]
     global ofile
-    global dataToSave
+    #global dataToSave #I dont think it should be global if running multiple at same time?
     global daqStartTime
     global daqEndTime
     global autotriggerCounter
     global TimeOutFlag
     global init
     global connected
-    path = homeDir+'/work/data/'+fname
-    # Check whether the specified path exists or not
-    isExist = os.path.exists(path)
-    print("Path name: ")
-    print(path)
-    if not isExist:
-        # Create a new directory because it does not exist 
-        os.makedirs(path)
-        print("The new directory is created!")
-    if(run!=0): fname_sub=homeDir+'/work/data/'+fname+'/data'+str(run)+'_'+str(sub)+'.npy'
-    elif(run==0): fname_sub=homeDir+'/work/data/'+fname+'/data'+str(sub)+'.npy'
+    global tInts
+    TimeInt = tInts[nDev]
+
+    ##Make a path for each device
+    #path = homeDir+'/work/data/'+fname+'/pico'+DevList[nDev]
+    ## Check whether the specified path exists or not
+    #isExist = os.path.exists(path)
+    #print("Path name: ")
+    #print(path)
+    #if not isExist:
+    #    # Create a new directory because it does not exist 
+    #    os.makedirs(path)
+    #    print("The new directory is created!")
+    
+    
+    if(run!=0): fname_sub = path+'/data'+str(run)+'_'+str(sub)+'.npy'
+    elif(run==0): fname_sub=path+'/data'+str(sub)+'.npy'
+    
     ofile=open(fname_sub,"wb")
     #print('time interval = ',timeIntervalns.value)
-    print('integration from ',startTime*timeIntervalns.value,' to ',stopTime*timeIntervalns.value,' [ns]')
+    print('integration from ',startTime*TimeInt,' to ',stopTime*TimeInt,' [ns]')
     daqStartTime=time.time()
     for iev in range(nev):
         #adc2mVData=get_single_event()
         #data.append(adc2mVData)
-        rawdata=get_single_event()
+        rawdata=get_single_event(nDev)
         data.append(rawdata)
         if(autotriggerCounter>2): 
             print("Timeout occurred!")
@@ -638,18 +731,20 @@ def run_daq(sub,run):
     print('Trigger rate = ', float(nev)/(daqEndTime-daqStartTime), ' Hz'), 
     # Stops the scope
     # Handle = chandle
-    status["stop"] = ps.ps6000Stop(chandle)
-    assert_pico_ok(status["stop"])
-    dataToSave={} #Init
-    analyse_and_plot_data(data,'figA.png')
+    SetStop = "stop"+DevList[nDev]
+    status[nDev][SetStop] = pm.StopScope(chandle,DevList[nDev])
+    assert_pico_ok(status[nDev][SetStop])
+    #dataToSave={} #Init
+    dataToSave = analyse_and_plot_data(data,'fig_pico'+DevList[nDev]+'.png',nDev)
     np.save(ofile,dataToSave,allow_pickle=True)
     ofile.close
 
-def close():
+def close(nDev):
     # Closes the unit
     # Handle = chandle
-    status["close"] = ps.ps6000CloseUnit(chandle)
-    assert_pico_ok(status["close"])
+    SetClose="close"+DevList[nDev]
+    status[nDev][SetClose] = pm.CloseScope(chandle,DevList[nDev])
+    assert_pico_ok(status[nDev][SetClose])
     
     # Displays the staus returns
     print(status)
