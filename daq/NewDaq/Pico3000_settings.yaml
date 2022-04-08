@@ -7,7 +7,7 @@
     preSamples: 400 
     postSamples: 400 
     Tbase: 2 
-    fName: '3000_TimeTest_April1' 
+    fName: '3000Test_Apr5' 
     fPath: '/home/comet/work/data/' 
     Nevents: 100
     Nsubruns: 10

@@ -77,7 +77,7 @@ def RunDAQ(SubRun,Settings,Stat):
         #elif(Settings[i][0]['typeDev']=='6000'):
         
         #    Processes[i] = Thread(target = daq6.run_daq, args = (SubRun,Settings[i],Stat[2*i],RetStats,2*i))
-
+        print(Modules[i])
         Processes[i] = Thread(target = Modules[i], args = (SubRun,Settings[i],Stat[2*i],RetStats,2*i))
         Processes[i].start()
         

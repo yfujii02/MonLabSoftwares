@@ -37,8 +37,8 @@ TimeOutFlag=False
 homeDir=os.environ["HOME"]
 
 # Setting the number of sample to be collected
-preTriggerSamples  = 2000
-postTriggerSamples = 2000
+preTriggerSamples  = 500
+postTriggerSamples = 500
 #preTriggerSamples  = 250
 #postTriggerSamples = 150
 ##### Test at Synchrotron
@@ -339,7 +339,7 @@ def get_single_event():
     # Handle = Chandle
     # nSegments = 1
     # nMaxSamples = ctypes.byref(cmaxSamples)
-    print(ctypes.byref(cmaxSamples))
+    #print(ctypes.byref(cmaxSamples))
   
     status["MemorySegments"] = ps.ps6000MemorySegments(chandle, 1, ctypes.byref(cmaxSamples))
     assert_pico_ok(status["MemorySegments"])
@@ -348,7 +348,7 @@ def get_single_event():
     status["SetNoOfCaptures"] = ps.ps6000SetNoOfCaptures(chandle, 1)
     assert_pico_ok(status["SetNoOfCaptures"])
     
-    print(cmaxSamples) 
+    #print(cmaxSamples) 
     # Starts the block capture
     # Handle = chandle
     # Number of prTriggerSamples
@@ -359,10 +359,10 @@ def get_single_event():
     # LpRead = None
     # pParameter = None
     
-    print(preTriggerSamples)
-    print(postTriggerSamples)
-    print(timebase)
-    print("#############################################")
+    #print(preTriggerSamples)
+    #print(postTriggerSamples)
+    #print(timebase)
+    #print("#############################################")
     status["runBlock"] = ps.ps6000RunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, 0, None, 0, None, None)
     assert_pico_ok(status["runBlock"])
     

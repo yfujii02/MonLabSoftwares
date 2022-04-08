@@ -24,6 +24,7 @@ TrigPolarity = 1 #initiate variable for simple trigger polarity
 daqStart = 0 #daq start time for each sub run
 daqEnd = 0 #daq end time variable for each sub run
 BaseWindow = 100 #starting window to extract a mean baseline
+RangeValues = [0,0,50,100,200,500,1000,2000,5000,10000]
 
 #Other Settings for pico functions (generally not changed)
 #Channel Init
@@ -173,34 +174,69 @@ def SetSimpleTrigger():
     status[STrig] = pm.SetSimpleTrigger(chandle,EnableTrig,SimpleTrigCh,threshADC,direction,DelayTrig,AutoTrig,Device)
     assert_pico_ok(status[STrig])
 
-#def SetAdvancedTrigger():
-#    global status
-#    global chandle
 
-#    NCh = len(trigCh_en)
-#    if(NCh!=6): print("ERROR: Not enough channels listed in settings!")
-#    ChConds = []
-#    ChDirs = []
-#    nTrigCh=0
+
+
+def SetAdvancedTrigger():
+    global status
+    global chandle
+
+    NCh = len(trigCh_en)
+    if(NCh!=6): print("ERROR: Not enough channels listed in settings!")
+
+
+    ChConds = []
+    ChDirs = []
+    nTrigCh=0
     
-#    for ch in range(NCh):
-#        ChDirs.append(pm.SetThresholdDirection(bool(Polarities[ch]),Device))
-#        if(trigCh_en[ch]==True):
-#            print('Ch ',ch,' is being set as a trigger channel')
-#            ChConds.append(pm.UpdateTriggerState(1,Device))
-#            nTrigCh += 1
-#        else:
-#            ChConds.append(pm.UpdateTriggerState(0,Device))
+    for ch in range(NCh):
+        ChDirs.append(pm.SetThresholdDirection(bool(Polarities[ch]),Device))
+        if(trigCh_en[ch]==True):
+            print('Ch ',ch,' is being set as a trigger channel')
+            ChConds.append(pm.UpdateTriggerState(1,Device))
+            nTrigCh += 1
+        else:
+            ChConds.append(pm.UpdateTriggerState(0,Device))
+    PWQ = [pm.UpdateTriggerState(1,Device)]        
+    nTrigConds = 1 
+    STrigCh = "SetTriggerChConditions_"+Device
+    status[STrigCh] = pm.SetTriggerConditions(chandle,ChConds,PWQ,nTrigConds,Device)
+    assert_pico_ok(status[STrigCh])
 
-#    PWQ = pm.UpdateTriggerState(1,Device)        
-#    nTrigConds = 1 
-#    STrigCh = "SetTriggerChConditions_"+Device
-#    status[STrigCh] = pm.SetTriggerConditions(chandle,ChConds,PWQ,nTrigConds,Device)
-#    assert_pico_ok(status[STrigCh])
+    STrigDir = "SetTriggerChDirections_"+Device
+    status[STrigDir] = pm.SetTriggerDirections(chandle,ChDirs,Device)
+    assert_pico_ok(status[STrigDir])
+    print("HERE") 
+    nChannelProperties = 0
+    auxOutputEnable = 0
+    
+    ChProperties = (pm.RetTrigProp(Device)*nTrigCh)()
+    hyst = 0
 
-#    STrigDir = "SetTriggerChDirections_"+Device
-#    status[STrigDir] = pm.SetTriggerConditions(chandle,ChDirs,Device)
-#    assert_pico_ok(status[STrigDir])
+    for ch in range(NCh):
+        if(trigCh_en[ch]==False): continue
+        threshADC = mV2adc(TrigThresh[ch],chRange[ch],maxADC)
+        threshMax = mV2adc(RangeValues[chRange[ch]],chRange[ch],maxADC)
+        print("Threshold = ",TrigThresh[ch],", (",threshADC," in ADC counts")
+        threshLow = min(threshADC,threshMax)
+        threshHigh = max(threshADC,threshMax)
+        print("Thresh Low/High = ",threshLow,"/",threshHigh)
+        mode = pm.SetThresholdMode(Device)
+        ChProperties[nChannelProperties] = pm.RetTrigChanProp(Polarities[ch],threshLow,threshHigh,
+                                                              hyst,ch,mode,Device) 
+
+        nChannelProperties+=1
+
+    STrigChProp = "SetTrigChProp_"+Device
+    status[STrigChProp] = pm.SetTrigChanProp(chandle,ChProperties,nTrigCh,
+                                             auxOutputEnable,AutoTrig,Device)
+    assert_pico_ok(status[STrigChProp])
+
+    #pwqCond = pm.SetPWQConds(ChConds,Device)
+
+    #nPWQConds = 1
+    
+
 # INCOMPLETE - FIX LATER!
     
 
@@ -294,6 +330,8 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
         if DAQMode == 1:
 #            print("Setting simple trigger")
             SetSimpleTrigger()
+        elif DAQMode == 2:
+            SetAdvancedTrigger()
     
     initialised = True
     CheckDir = os.path.exists(fPath)
@@ -373,8 +411,6 @@ def analyseData(data,figname):
     plt.close(fig)
     
 
-def CheckRunFlag():
-    return FinishRunFlag
 
 def run_daq(sub,Settings,Stat,RetStats,Ind):
     global ofile

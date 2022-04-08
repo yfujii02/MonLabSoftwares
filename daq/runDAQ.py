@@ -19,12 +19,12 @@ threshold=100
 #readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
 #trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 #Set B,C,D as trigger channels for scint-fibre tests 24/02
-readchannel="1000" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
+readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
 
 #Set B as trigger channel for dark count test 17/09
 #trigchannel='0100'
 #Set all as trigger channel for scint test 12/10
-trigchannel='1000'
+trigchannel='1001'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
@@ -56,7 +56,7 @@ genPulseRate=20  # in MHz
 #volRanges="6555"
 #volRanges="2444" #2021 dark count test
 #volRanges="5555" #13/12/21 scint test
-volRanges="3444" #13/12/21 scint test
+volRanges="3553" #13/12/21 scint test
 
 plotEachFig=False
 
@@ -97,8 +97,8 @@ def setParameters(val0,val1,val2,val3,val4):
     threshold  =float(val2)
     daqMode    =int(val3)
     fname      =val4
-    readchannel="1100" # Temporary hardcoded
-    trigchannel="0100" # Temporary hardcoded
+    readchannel="1101" # Temporary hardcoded
+    trigchannel="1001" # Temporary hardcoded
     volRanges  ="6733" # Temporary hardcoded
     setPlotEachFig(True)
 

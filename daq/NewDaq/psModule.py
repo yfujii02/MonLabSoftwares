@@ -190,16 +190,16 @@ def UpdateTriggerState(state,device):
             return ps3.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]
     elif(device == '6000'):
         if(state==0):
-            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
+            return ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
         elif(state==1):
-            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_TRUE"]
+            return ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_TRUE"]
         elif(state==2):
-            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_FALSE"]
+            return ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_FALSE"]
         elif(state==3):
-            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_MAX"]
+            return ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_MAX"]
         else:
             print('Invalid state! Setting to DONT_CARE')
-            return ps6.PS6000A_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
+            return ps6.PS6000_TRIGGER_STATE["PS6000_CONDITION_DONT_CARE"]
     else:
         print('ERROR: Invalid Device (UpdateTriggerState)')
         return
@@ -210,7 +210,7 @@ def SetTriggerConditions(chandle,ch_states,pwq_state,ncond,device):
         TrigCons = ps3.PS3000A_TRIGGER_CONDITIONS(st[0],st[1],st[2],st[3],st[4],st[5],st[6])
         return ps3.ps3000aSetTriggerChannelConditions(chandle,ctypes.byref(TrigCons),ncond)
     elif(device == '6000'):
-        TrigCon = ps6.PS6000_TRIGGER_CONDITIONS(st[0],st[1],st[2],st[3],st[4],st[5],st[6])
+        TrigCons = ps6.PS6000_TRIGGER_CONDITIONS(st[0],st[1],st[2],st[3],st[4],st[5],st[6])
         return ps6.ps6000SetTriggerChannelConditions(chandle,ctypes.byref(TrigCons),ncond)
     else:
         print('ERROR: Invalid Device (SetTriggerConditions)')
@@ -218,10 +218,59 @@ def SetTriggerConditions(chandle,ch_states,pwq_state,ncond,device):
 
 def SetTriggerDirections(chandle,ch_dirs,device):
     d = ch_dirs
+    print(ch_dirs)
+    print(ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"])
     if(device == '3000'):
-        return ps3.ps3000aSetTriggerChannelConditions(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
+        return ps3.ps3000aSetTriggerChannelDirections(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
     elif(device == '6000'):
-        return ps6.ps6000SetTriggerChannelConditions(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
+        return ps6.ps6000SetTriggerChannelDirections(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
     else:
         print('ERROR: Invalid Device (SetTriggerDirections)')
+        return
 
+def SetThresholdMode(device):
+    if(device=='3000'): return ps3.PS3000A_THRESHOLD_MODE["PS3000A_LEVEL"]
+    elif(device=='6000'): return ps6.PS6000_THRESHOLD_MODE["PS6000_LEVEL"]
+    else:
+        print('ERROR: Invalid Device (SetThresholdMode)')
+        return
+
+def RetTrigProp(device):
+    if(device=='3000'): return ps3.PS3000A_TRIGGER_CHANNEL_PROPERTIES
+    elif(device=='6000'): return ps6.PS6000_TRIGGER_CHANNEL_PROPERTIES
+    else:
+        print('ERROR: Invalid Device (RetTrigProp)')
+        return
+
+def RetTrigChanProp(polarity,minT,maxT,hyst,channel,mode,device):
+    if(device=='3000'): 
+        return ps3.PS3000A_TRIGGER_CHANNEL_PROPERTIES(polarity*minT,hyst,polarity*maxT,
+                                                      hyst,channel,mode) 
+    elif(device=='6000'):
+        return ps6.PS6000_TRIGGER_CHANNEL_PROPERTIES(polarity*minT,hyst,polarity*maxT,
+                                                      hyst,channel,mode) 
+    else:
+        print('ERROR: Invalid Device (RetTrigChanProp)')
+        return
+
+
+def SetTrigChanProp(chandle,ch_props,nCh,auxEn,autoTrig,device):
+    if(device=='3000'): 
+        return ps3.ps3000aSetTriggerChannelProperties(chandle,ctypes.byref(ch_props),
+                                                      nCh,auxEn,autoTrig) 
+    elif(device=='6000'):
+        return ps6.ps6000SetTriggerChannelProperties(chandle,ctypes.byref(ch_props),
+                                                      nCh,auxEn,autoTrig) 
+    else:
+        print('ERROR: Invalid Device (SetTrigChanProp)')
+        return
+
+
+def SetPWQConds(ch_cons,device):
+    c = ch_cons
+    if(device == '3000'):
+        return ps3.PS3000A_PWQ_CONDITIONS(c[0],c[1],c[2],c[3],c[4],c[5])
+    elif(device == '6000'):
+        return ps6.PS6000_PWQ_CONDITIONS(c[0],c[1],c[2],c[3],c[4],c[5])
+    else:
+        print('ERROR: Invalid Device (SetPWQConds)')
