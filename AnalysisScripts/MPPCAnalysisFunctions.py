@@ -102,6 +102,9 @@ MNumber    = 20  ## moving average filter number
 NBins = 100 #Histogram bins used 
 RangeUpper    = 100 #Upper limit of histograms 
 RangeLower    = 0 #Lower limit of histograms 
+TimeUpper     = 100 #Upper limit of histograms 
+TimeLower     = 0 #Lower limit of histograms 
+TimeBins      = 50
 
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
@@ -137,10 +140,15 @@ def SetSignalWindow(sigL,sigU,baseU=100):
     global SigLower
     global SigUpper
     global BaseUpper
+    global TimeLower
+    global TimeUpper
     
     SigLower  = sigL  - (MNumber-1)
     SigUpper  = sigU  - (MNumber-1)
     BaseUpper = baseU - (MNumber-1)
+    TimeLower = SigLower - 1
+    TimeUpper = SigLower + 1
+    TimeBins  = int((TimeUpper-TimeLower)/2)
 
 def ErrorExit(String):
     #Exit program with string saying where
@@ -395,13 +403,15 @@ def AnalyseFolder(FPath,PlotFlag=False):
         dataArray = ExtractWfInfo(FileOutputs[ch])
         print(dataArray)
         heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-        nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),"Peak height [mV]")
+        nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),
+                "Peak height [mV]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
 
         #Added Feb 27 2022 - plotting time of peak in array (Ch B will have garbage so ignore)
         timearray = 0.8*np.array(dataArray.getPeakIndexArray(),dtype=np.float) #
-        nBinsT, valsT = PlotHistogram(timearray,1000,2500,1500,str(dataArray.getChannel(0)),"Peak Time (ns)")
+        nBinsT, valsT = PlotHistogram(timearray,TimeLower,TimeUpper,TimeBins,str(dataArray.getChannel(0)),
+                "Peak Time (ns)")
         #ChHistData.append(nBinsT)
         #ChHistData.append(valsT)        
         TimePeak = nBinsT[np.argmax(valsT)]

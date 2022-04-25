@@ -8,7 +8,7 @@
 import sys
 import numpy as np
 import MPPCAnalysisFunctions as myFunc
-import mtplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from fitFunctions import Moyal,Gaus
 from loadSettings import load_analysis_conf

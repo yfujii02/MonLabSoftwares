@@ -1,9 +1,9 @@
 ---
 - Waveform:
-    Polarity : 1
+    Polarity : -1
 - AnalysisWindow:
-    Start   : 650
-    Stop    : 900
+    Start   : 950
+    Stop    : 1500
     Baseline: 250
 - Filtering:
     MovingAveragePoints: 12
