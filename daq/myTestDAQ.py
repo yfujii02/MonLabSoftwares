@@ -292,11 +292,11 @@ def set_advancedTrigger(value,chan_en,useAUX):
     else:
         #direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
         direction = ps.PS6000_THRESHOLD_DIRECTION["PS6000_BELOW"]
-    #upper = 30 # x(time interval) (0.8ns now)
-    #lower = upper
-    upper = 20 # x(time interval) (0.8ns now)
-    lower = 5
-    ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_GREATER_THAN"]
+    upper = 30 # x(time interval) (0.8ns now)
+    lower = upper
+    #upper = 20 # x(time interval) (0.8ns now)
+    #lower = 5
+    #ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_GREATER_THAN"]
     #ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_IN_RANGE"]
     #ptype = ps.PS6000_PULSE_WIDTH_TYPE["PS6000_PW_TYPE_NONE"]
     status["setPulseWidthQualifier"] = ps.ps6000SetPulseWidthQualifier(chandle, ctypes.byref(pwqConditions), nPwqConditions, direction, lower, upper, ptype)

@@ -36,20 +36,24 @@ def SetChannel(chandle,channel,enable,coupling,ch_range,offset,bandwidth,device)
        print("ERROR: Invalid Device (SetChannel)")
        return
 
-def SetThresholdDirection(rise,device):
-    #rise (True or False) sets whether it is rising or falling edge for threshold
+def SetThresholdDirection(polarity,rise,device):
     if device == "3000":
-        if rise == True:
-            return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
-        else:
-            return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_FALLING"]
+        if polarity == True:
+            if rise == True: return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
+            else: return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_ABOVE"]
+        else: 
+            if rise == True: return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_FALLING"]
+            else: return ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_BELOW"]
     
     elif device == "6000":
-        if rise == True:
-            return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_RISING"]
-        else: 
-            return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
     
+        if polarity == True:
+            if rise == True: return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_RISING"]
+            else: return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_ABOVE"]
+        else: 
+            if rise == True: return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_FALLING"]
+            else: return ps6.PS6000_THRESHOLD_DIRECTION["PS6000_BELOW"]
+   
     else:
         print("ERROR: Invalid Device (SetThresholdDirection)") 
         return
@@ -218,8 +222,6 @@ def SetTriggerConditions(chandle,ch_states,pwq_state,ncond,device):
 
 def SetTriggerDirections(chandle,ch_dirs,device):
     d = ch_dirs
-    print(ch_dirs)
-    print(ps3.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"])
     if(device == '3000'):
         return ps3.ps3000aSetTriggerChannelDirections(chandle,d[0],d[1],d[2],d[3],d[4],d[5])
     elif(device == '6000'):

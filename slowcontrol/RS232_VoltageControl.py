@@ -53,7 +53,7 @@ rm = visa.ResourceManager()
 print(rm.list_resources())
 #Create a connection with the RS232 port listed when printing list_resources
 time.sleep(0.5)
-instrument=rm.open_resource(u'ASRL/dev/ttyUSB0::INSTR')
+instrument=rm.open_resource(u'ASRL/dev/ttyS0::INSTR')
 ResetFlag = int(args[1])
 instrument.baud_rate=9600
 instrument.write_termination = '\n'

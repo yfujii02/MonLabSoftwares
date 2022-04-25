@@ -24,7 +24,7 @@ readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in
 #Set B as trigger channel for dark count test 17/09
 #trigchannel='0100'
 #Set all as trigger channel for scint test 12/10
-trigchannel='1001'
+trigchannel='1100'
 
 #trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 

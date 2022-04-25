@@ -89,6 +89,7 @@ NCh   = 0
 SigLower = 0
 SigUpper = 400
 BaseUpper = 100
+Polarity  = -1
 
 ### Flags for each filtering
 MovAvF = 0
@@ -122,6 +123,10 @@ def SetBins(nbins,lower,upper):
     RangeUpper    = upper
     RangeLower    = lower
     return 0
+
+def SetPolarity(val):
+    global Polarity
+    Polarity = val
 
 #### Basic functions
 def SetRMSCut(val):
@@ -177,11 +182,11 @@ def PlotWaveformsFromAFile(FName):
     #Plot all waveforms from a given file
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
 
-    Waveforms,SumWaveforms = DecodeChannels(FName)
-   
+    Waveforms,SumWaveforms = DecodeChannels(FName)  
     for ch in range(NCh): 
+        plt.figure()
         for i in range(len(Waveforms[ch])):
-            plt.figure()
+            #plt.figure()
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
             plt.title("Ch "+str(ch))
@@ -192,19 +197,24 @@ def PlotWaveformsFromAFile(FName):
         plt.xlabel("Time (a.u.)")
         plt.ylabel("Voltage (mV)")
         plt.title("Summed Waveforms")
-        for i in range(len(ChSum)):
-            plt.plot(ChSum[i],alpha=0.1)
+        for i in range(len(SumWaveforms)):
+            plt.plot(SumWaveforms[i],alpha=0.1)
                 
 
 def FileList(FPath):
     #For a given folder path, return the files
+    FileListNew = []
     FilePaths = str(FPath)+'/*.npy' #file paths of every .npy file
     FileList=glob.glob(FilePaths,recursive=True)
     FileList.sort(key=os.path.getmtime)
-    size = os.path.getsize(FileList[len(FileList)-1])
-    print(size)
-    if(size==0):FileList = FileList[:-1] 
-    return FileList
+    for f in FileList:
+        size = os.path.getsize(f)
+        if (size==0): continue
+        FileListNew.append(f)
+
+    #print(size)
+    #if(size==0):FileList = FileList[:-1] 
+    return FileListNew
 
 def LoadFile(FName):
     #Returns number of channels
@@ -286,14 +296,15 @@ def ProcessAWaveform(Ch,Signal):
     if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
     if(MovAvF==1): Signal = MovAvFilter(Signal)
     if(BaseF ==1): Signal = BaselineFilter(Signal)
+    Signal = Polarity*Signal
     ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
     
     #Calculate RMS of baseline area before signal window
     RMS = np.std(Signal[:BaseUpper])
     
     #Extract output analysis parameter from waveform
-    PeakVal   = -np.min(Signal[SigLower:SigUpper])
-    PeakIndex = np.argmin(Signal[SigLower:SigUpper])+SigLower
+    PeakVal   = np.max(Signal[SigLower:SigUpper])
+    PeakIndex = np.argmax(Signal[SigLower:SigUpper])+SigLower
     ChargeVal = simps(Signal,ChT) # scipy integration function
     
     #Append outputs

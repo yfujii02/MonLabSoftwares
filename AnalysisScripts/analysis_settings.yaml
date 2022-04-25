@@ -1,14 +1,17 @@
 ---
+- Waveform:
+    Polarity : 1
 - AnalysisWindow:
-    Start   : 195
-    Stop    : 280
-    Baseline: 175
+    Start   : 650
+    Stop    : 900
+    Baseline: 250
 - Filtering:
-    MovingAveragePoints: 24
+    MovingAveragePoints: 12
     FFTCutoffFrequency : 396
 - Histogram:
-    NumberOfBins: 228
+    NumberOfBins: 100
     LowerRange  :  -5
-    UpperRange  : 109
-    LandauFit  : True
+    UpperRange  :  75
+    LandauFit  : False
+    GaussianFit: False
     
