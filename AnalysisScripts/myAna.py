@@ -24,6 +24,8 @@ def main():
     waveform,analysisWindow,filtering,histogram=load_analysis_conf(conffile)
     for f in folder:
         myFunc.SetPolarity(waveform["Polarity"])
+        myFunc.SetTimeScale(waveform["TimeScale"])
+        myFunc.SetPeakThreshold(waveform["PeakThreshold"])
         myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(analysisWindow["Start"],analysisWindow["Stop"],analysisWindow["Baseline"])
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])

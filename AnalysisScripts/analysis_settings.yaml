@@ -1,17 +1,19 @@
 ---
 - Waveform:
     Polarity : -1
+    TimeScale: 0.8
+    PeakThreshold: 10
 - AnalysisWindow:
     Start   : 950
-    Stop    : 1500
+    Stop    : 1400
     Baseline: 250
 - Filtering:
-    MovingAveragePoints: 12
-    FFTCutoffFrequency : 396
+    MovingAveragePoints: 3
+    FFTCutoffFrequency : 375
 - Histogram:
-    NumberOfBins: 100
+    NumberOfBins: 150
     LowerRange  :  -5
-    UpperRange  :  75
+    UpperRange  : 145
     LandauFit  : False
     GaussianFit: False
     

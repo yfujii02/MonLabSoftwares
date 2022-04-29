@@ -27,12 +27,14 @@ class WfInfo(object):
     ## height : Peak height
     ## charge : Integrated charge
     ## rms    : baseline RMS
-    def __init__(self, ch, peakIdx, height, charge, rms):
+    ## edgeTime: Pulse edge timing
+    def __init__(self, ch, peakIdx, height, charge, rms, edgeTime):
         self.ch = ch
         self.peakIdx = peakIdx
         self.height  = height
         self.charge  = charge
         self.rms     = rms
+        self.edgeTime= edgeTime
     def ch(self):
         return self.ch
     def peakIdx(self):
@@ -43,6 +45,8 @@ class WfInfo(object):
         return self.charge
     def rms(self):
         return self.rms
+    def edgeTime(self):
+        return self.edgeTime
 
 class ExtractWfInfo():
     def __init__(self, wfList):
@@ -60,6 +64,8 @@ class ExtractWfInfo():
     #Added Feb 27 2022
     def getPeakIndex(self,i):
         return self.getWfAt(i).peakIdx
+    def getEdgeTime(self,i):
+        return self.getWfAt(i).edgeTime
 
     def getHeightArray(self):
         heights=[]
@@ -73,16 +79,21 @@ class ExtractWfInfo():
         return charges
     #Added Feb 27 2022
     def getPeakIndexArray(self):
-        times=[]
+        ptimes=[]
         for i in range(len(self.wfList)):
-            times.append(self.getPeakIndex(i))
-        return times
+            ptimes.append(self.getPeakIndex(i))
+        return ptimes
+    def getEdgeTimeArray(self):
+        etimes=[]
+        for i in range(len(self.wfList)):
+            etimes.append(self.getEdgeTime(i))
+        return etimes
 
 FileLoaded = False
 FileData   = []
 HeaderInfo = []
 WfData     = []
-RemoveNoisyEvent=True
+RemoveNoisyEvent=False
 NCh   = 0
 
 #Global variables
@@ -105,11 +116,16 @@ RangeLower    = 0 #Lower limit of histograms
 TimeUpper     = 100 #Upper limit of histograms 
 TimeLower     = 0 #Lower limit of histograms 
 TimeBins      = 50
+TimeScale     = 0.8 # It's 4ns/sample for PS3000
 
 #Set a baseline RMS cut off to remove noise
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
 
+ConstantFraction=0.15
+PeakThreshold=10
+
 ##def Initialise(): # to be implemented
+#### Basic functions
 
 #### Set the binnings and range for PlotHistogram
 def SetBins(nbins,lower,upper):
@@ -131,10 +147,9 @@ def SetPolarity(val):
     global Polarity
     Polarity = val
 
-#### Basic functions
-def SetRMSCut(val):
-    global RMS_Cut
-    RMS_Cut = val
+def SetTimeScale(val):
+    global TimeScale
+    TimeScale = val
 
 def SetSignalWindow(sigL,sigU,baseU=100):
     global SigLower
@@ -147,8 +162,20 @@ def SetSignalWindow(sigL,sigU,baseU=100):
     SigUpper  = sigU  - (MNumber-1)
     BaseUpper = baseU - (MNumber-1)
     TimeLower = SigLower - 1
-    TimeUpper = SigLower + 1
+    TimeUpper = SigUpper + 1
     TimeBins  = int((TimeUpper-TimeLower)/2)
+
+def SetPeakThreshold(val):
+    global PeakThreshold
+    PeakThreshold = val
+
+def SetConstantFraction(val):
+    global ConstantFraction
+    ConstantFraction = val
+
+def SetRMSCut(val):
+    global RMS_Cut
+    RMS_Cut = val
 
 def ErrorExit(String):
     #Exit program with string saying where
@@ -176,9 +203,8 @@ def BaselineFilter(Signal):
 
 def MovAvFilter(Signal):
     #Apply moving average filter to waveform
-    #MNumber = 20 #moving average filter number
-    #CutEdges = 5 #cut edges off to account for filter effects ##### FIXME should this be MNumber-1 to fully remove the effect??
-    CutEdges = MNumber-1 #cut edges off to account for filter effects ##### FIXME should this be MNumber-1 to fully remove the effect??
+    #MNumber #moving average filter number
+    CutEdges = MNumber-1 #cut edges off to account for filter effects
     
     moveavefilt=np.cumsum(np.insert(Signal,0,0))
     Signal=(moveavefilt[MNumber:]-moveavefilt[:-MNumber])/float(MNumber)
@@ -283,16 +309,20 @@ def EnableBaselineFilter():
     BaseF = 1
     return
 
-ConstantFraction=0.1
-PeakThreshold=10
 ### Get the index where waveform exceeds the certain threshold
 ### Put the waveform, Wf[AnalysisWindow:PeakIdx+1] as Wf
 def GetEdgeTime(Wf,constantFraction=True):
     threVal = PeakThreshold
     if constantFraction==True:
         threVal = ConstantFraction*np.max(Wf)
-    idx = np.max(np.where((Wf<threVal)))
-    return idx
+    ret = np.where(Wf<threVal)
+    if len(ret[0])==0: return -1
+    #print(ret,"  ",len(ret[0]))
+    idx  = ret[0][-1]
+    #print(idx)
+    time = ( (threVal-Wf[idx])*(idx+1) + (Wf[idx+1]-threVal)*(idx) ) / (Wf[idx+1]-Wf[idx])
+    time = TimeScale*time
+    return time
     
 def ProcessAWaveform(Ch,Signal):
     #Extract information from a signal waveform:
@@ -305,7 +335,7 @@ def ProcessAWaveform(Ch,Signal):
     if(MovAvF==1): Signal = MovAvFilter(Signal)
     if(BaseF ==1): Signal = BaselineFilter(Signal)
     Signal = Polarity*Signal
-    ChT = np.linspace(0,len(Signal)*0.8,len(Signal)) #All channels have a dt = 0.8 ns
+    ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
     
     #Calculate RMS of baseline area before signal window
     RMS = np.std(Signal[:BaseUpper])
@@ -313,10 +343,14 @@ def ProcessAWaveform(Ch,Signal):
     #Extract output analysis parameter from waveform
     PeakVal   = np.max(Signal[SigLower:SigUpper])
     PeakIndex = np.argmax(Signal[SigLower:SigUpper])+SigLower
+    if(PeakVal>PeakThreshold):
+        EdgeTime = GetEdgeTime(Signal[SigLower:PeakIndex+1])+SigLower*TimeScale
+    else:
+        EdgeTime = -1
     ChargeVal = simps(Signal,ChT) # scipy integration function
     
     #Append outputs
-    return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS)
+    return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS,EdgeTime)
    
 def HistogramFit(x,*params):
     y = np.zeros_like(x)
@@ -403,19 +437,22 @@ def AnalyseFolder(FPath,PlotFlag=False):
         dataArray = ExtractWfInfo(FileOutputs[ch])
         print(dataArray)
         heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
+        print(heightArray)
         nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),
                 "Peak height [mV]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
 
         #Added Feb 27 2022 - plotting time of peak in array (Ch B will have garbage so ignore)
-        timearray = 0.8*np.array(dataArray.getPeakIndexArray(),dtype=np.float) #
-        nBinsT, valsT = PlotHistogram(timearray,TimeLower,TimeUpper,TimeBins,str(dataArray.getChannel(0)),
-                "Peak Time (ns)")
+        #timearray = np.array(dataArray.getPeakIndexArray(),dtype=np.float) #
+        timearray = np.array(dataArray.getEdgeTimeArray(),dtype=np.float) #
+        nBinsT, valsT = PlotHistogram(timearray,TimeScale*TimeLower,TimeScale*TimeUpper,TimeBins,str(dataArray.getChannel(0)),
+                #"Peak Time (ns)")
+                "Edge Time (ns)")
         #ChHistData.append(nBinsT)
         #ChHistData.append(valsT)        
         TimePeak = nBinsT[np.argmax(valsT)]
-        print("PeakTime = %s ns" %(TimePeak))
+        print("EdgeTime = %s ns" %(TimePeak))
 
     #Plot summed channel histogram
     dataArray = ExtractWfInfo(SumOutputs)
@@ -436,16 +473,12 @@ def CosmicSr90Analysis():
     #Function to determine Sr90 spectrum from datasets of cosmic rays and Sr90 + cosmic rays
     
     #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
-    #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Cosmic\\' 
     #FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
     #nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,True)
     #CosmicBins = CosmicHistData[8]
     #CosmicN = CosmicHistData[9]
     
     #Analyse strontium data set
-    #FolderPath=r'C:\Users\smdek2\MPPCTests2021\Scint_Test_Oct15\Strontium\\' 
-    FolderPath=r'/home/comet/work/data/Dec13_TrigScintLargeScint_Sr90_SelfTrig50mV_Vb42_MinDist_2' 
-    FolderPath=r'/home/comet/work/data/Dec10_LargeScint_Sr90ColEdge_SelfTrig10mV_Vb42//'
     FolderPath = r'/home/comet/work/data/Dec13_LargeScint_Cosmic_SmallTrigNearFibre_AUXTrig150mV_Vb42_MinDist'
     nch,SrTR,SrHistData = AnalyseFolder(FolderPath,True)
     SrBins = SrHistData[8]
