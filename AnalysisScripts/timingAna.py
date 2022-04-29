@@ -43,6 +43,7 @@ def main():
     for i in FList:
         rate = myFunc.AnalyseSingleFile(i,FileOutputs,SumOutputs)
 
+    #### Analyse finger counters
     conffile = "analysis_settings_3000.yaml"
     waveform,analysisWindow,filtering,histogram=load_analysis_conf(conffile)
     myFunc.SetPolarity(waveform["Polarity"])
@@ -81,6 +82,7 @@ def main():
         dataArray[ch+4]   = ExtractWfInfo(FileOutputs2[ch])
         heightArray[ch+4] = np.array(dataArray[ch+4].getHeightArray(),dtype=float)
         timeArray[ch+4]   = np.array(dataArray[ch+4].getEdgeTimeArray(),dtype=float)
+    ##### Checking if they have pulses near the accelerator timing
     ret1 = np.where( (abs(timeArray[0]-950)<75) & (abs(timeArray[5]-930)<75) ) ### 1st counter has a signal
     ret2 = np.where( (abs(timeArray[0]-950)<75) & (abs(timeArray[6]-930)<75) ) ### 2st counter has a signal
     ret3 = np.where( (abs(timeArray[0]-950)<75) & (abs(timeArray[7]-930)<75) ) ### 3st counter has a signal
