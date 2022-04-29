@@ -87,9 +87,9 @@ def main():
     timeDiff1 = (timeArray[0]-timeArray[5])[ret1]
     timeDiff2 = (timeArray[0]-timeArray[6])[ret2]
     timeDiff3 = (timeArray[0]-timeArray[7])[ret3]
-    print(timeDiff1)
-    print(timeDiff2)
-    print(timeDiff3)
+    #print(timeDiff1)
+    #print(timeDiff2)
+    #print(timeDiff3)
     plt.figure()
     plt.hist(timeDiff1,bins=160,range=(-80,80))
     plt.figure()
@@ -114,15 +114,17 @@ def main():
 
     #### Pick-up the events with actual coincidence-like signals
     retFinal = np.where( (timeArray[0]>0) &
-                         ( (timeArray[5]>0) & (abs(timeArray[0]-timeArray[5]-20)<10) ) |
-                         ( (timeArray[6]>0) & (abs(timeArray[0]-timeArray[6]-20)<10) ) |
-                         ( (timeArray[7]>0) & (abs(timeArray[0]-timeArray[7]-20)<10) )
+                         ( (timeArray[5]>0) & (abs(timeArray[0]-timeArray[5]-18)<10) ) |
+                         ( (timeArray[6]>0) & (abs(timeArray[0]-timeArray[6]-18)<10) ) |
+                         ( (timeArray[7]>0) & (abs(timeArray[0]-timeArray[7]-18)<10) )
                         )
     print("Total events : ", len(heightArray[0]))
     selected = heightArray[0][retFinal]
     print("Selected     : ", len(selected))
     plt.figure()
-    plt.hist(selected,bins=180,range=(-10,890))
+    plt.hist(heightArray[0],bins=90,range=(-10,890))
+    plt.hist(selected,bins=90,range=(-10,890))
+    plt.yscale('log')
     plt.show()
 
 if __name__ == "__main__":
