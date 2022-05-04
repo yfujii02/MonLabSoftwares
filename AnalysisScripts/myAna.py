@@ -21,8 +21,11 @@ def main():
     trR = 0 ### Trigger Rate
     bins=[]
     vals=[]
-    analysisWindow,filtering,histogram=load_analysis_conf(conffile)
+    waveform,analysisWindow,filtering,histogram=load_analysis_conf(conffile)
     for f in folder:
+        myFunc.SetPolarity(waveform["Polarity"])
+        myFunc.SetTimeScale(waveform["TimeScale"])
+        myFunc.SetPeakThreshold(waveform["PeakThreshold"])
         myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(analysisWindow["Start"],analysisWindow["Stop"],analysisWindow["Baseline"])
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
@@ -30,6 +33,7 @@ def main():
         myFunc.EnableBaselineFilter()
         nch, trR, hData = myFunc.AnalyseFolder(f,False)
         #plt.show()
+        myFunc.PlotWaveformsFromAFile(f+"/data2.npy") 
         print(len(hData))
         if len(bins)==0:
             for i in range(int(len(hData)/2)):
@@ -38,7 +42,7 @@ def main():
         else:
             for i in range(int(len(hData)/2)):
                 vals[i] = vals[i]+hData[2*i+1]
-        plt.close('all')
+        #plt.close('all')
     for i in range(len(bins)):
         plt.figure()
         #print(len(bins[i]),len(vals[i]))
@@ -46,6 +50,7 @@ def main():
         #print(vals[i])
         plt.bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
         plt.ylim(bottom=0.2)
+        plt.yscale('log')
 
         if i<nch and i!=1  and histogram["GaussianFit"]==True:
            xdata = bins[i][:-1]

@@ -3,18 +3,18 @@
    typeDev: '6000'
    numDev: '1' 
 - DaqSettings:
-    Mode: 2 
-    preSamples: 2000 
-    postSamples: 2000 
+    Mode: 1 
+    preSamples: 500 
+    postSamples: 1500 
     Tbase: 2 
-    fName: '6000_Test_Apr5' 
-    fPath: '/home/comet/work/data/' 
-    Nevents: 1 
-    Nsubruns: 10 
+    fName: '6000_BeamtTest_Apr25' 
+    fPath: '/home/yfujii/work/data_2/'  #'/home/comet/work/data/' 
+    Nevents: 200
+    Nsubruns: 500
 - ChannelSettings:
-    Vrange: [3,3,3,3,6,6] 
+    Vrange: [4,4,4,4,6,6] 
     Rstatus: '1111' 
-    Tstatus: '100100' 
+    Tstatus: '000001' 
     Tsimple: 5 
-    Tthresh: [20,0,0,20,0,0]
+    Tthresh: [0,0,0,0,1000,1000]
     Polarity: [1,1,1,1,1,1] 

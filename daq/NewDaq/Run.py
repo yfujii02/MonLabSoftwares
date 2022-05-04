@@ -23,6 +23,7 @@ def main():
         Status=[]         
 
         Dev,Daq,Chan = run.load_dev(config)
+        if Dev == 0: return
         Status = run.InitDAQ(Dev,Daq,Chan)
         StatList.append(Status)
         StatList.append(False)
@@ -58,7 +59,7 @@ if __name__ == "__main__":
        print(" ")
        print("To use DAQ, run:")
        print(" ")
-       print("python3.7 RunDAQ.py YourDAQandDeviceSettings.yaml")
+       print("python3.7 RunDAQ.py YourDaqAndDeviceSettings.yaml")
        print(" ")
        print("For more details on settings:")
        print(" ")

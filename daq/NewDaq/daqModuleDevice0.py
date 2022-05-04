@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import psModule as pm
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
-
+import warnings
+warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
 #Global variables
 maxADC = ctypes.c_int16(32512) #define max ADC value
 homeDir = os.environ["HOME"] #home directory path
@@ -166,10 +167,9 @@ def SetSimpleTrigger():
     global chandle
     
     #Channel, polarity and threshold of trigger determined from settings file 
-    direction = pm.SetThresholdDirection(bool(TrigPolarity),Device) #direction of trigger
+    direction = pm.SetThresholdDirection(bool(TrigPolarity),True,Device) #direction of trigger
     #Threshold in mV = TrigPolarity * TrigThresh [SimpleTrigCh], converted to ADC count
     threshADC = mV2adc(TrigPolarity*TrigThresh[SimpleTrigCh],chRange[SimpleTrigCh],maxADC)
-    
     STrig = "Trigger_"+Device+"_Ch_"+str(SimpleTrigCh)
     status[STrig] = pm.SetSimpleTrigger(chandle,EnableTrig,SimpleTrigCh,threshADC,direction,DelayTrig,AutoTrig,Device)
     assert_pico_ok(status[STrig])
@@ -190,14 +190,15 @@ def SetAdvancedTrigger():
     nTrigCh=0
     
     for ch in range(NCh):
-        ChDirs.append(pm.SetThresholdDirection(bool(Polarities[ch]),Device))
+        ChDirs.append(pm.SetThresholdDirection(bool(Polarities[ch]),False,Device))
         if(trigCh_en[ch]==True):
             print('Ch ',ch,' is being set as a trigger channel')
             ChConds.append(pm.UpdateTriggerState(1,Device))
             nTrigCh += 1
         else:
             ChConds.append(pm.UpdateTriggerState(0,Device))
-    PWQ = [pm.UpdateTriggerState(1,Device)]        
+
+    PWQ = [pm.UpdateTriggerState(0,Device)]        
     nTrigConds = 1 
     STrigCh = "SetTriggerChConditions_"+Device
     status[STrigCh] = pm.SetTriggerConditions(chandle,ChConds,PWQ,nTrigConds,Device)
@@ -206,7 +207,6 @@ def SetAdvancedTrigger():
     STrigDir = "SetTriggerChDirections_"+Device
     status[STrigDir] = pm.SetTriggerDirections(chandle,ChDirs,Device)
     assert_pico_ok(status[STrigDir])
-    print("HERE") 
     nChannelProperties = 0
     auxOutputEnable = 0
     
@@ -217,7 +217,7 @@ def SetAdvancedTrigger():
         if(trigCh_en[ch]==False): continue
         threshADC = mV2adc(TrigThresh[ch],chRange[ch],maxADC)
         threshMax = mV2adc(RangeValues[chRange[ch]],chRange[ch],maxADC)
-        print("Threshold = ",TrigThresh[ch],", (",threshADC," in ADC counts")
+        print("Threshold = ",TrigThresh[ch],", (",threshADC," in ADC counts)")
         threshLow = min(threshADC,threshMax)
         threshHigh = max(threshADC,threshMax)
         print("Thresh Low/High = ",threshLow,"/",threshHigh)
@@ -232,15 +232,36 @@ def SetAdvancedTrigger():
                                              auxOutputEnable,AutoTrig,Device)
     assert_pico_ok(status[STrigChProp])
 
-    #pwqCond = pm.SetPWQConds(ChConds,Device)
-
-    #nPWQConds = 1
+def JustWakeUp():
+    global status
+    global chandle
+    global cmaxSamples
+    cmaxSamples=ctypes.c_int32(maxSamples)
+    Overflow = ctypes.c_int16() #create overflow location for data
+    SMem = "MemSegments_"+Device
+    status[SMem] = pm.MemorySegments(chandle,nSegMS,ctypes.byref(cmaxSamples),Device)
+    assert_pico_ok(status[SMem])
+    #Set number of captures
+    SCap = "SetNoOfCaptures_"+Device
+    status[SCap] = pm.SetCaptures(chandle,0,Device)
+    assert_pico_ok(status[SCap]) 
+   
+    #Start block capture
+    SBlock = "RunBlock_"+Device
+    status[SBlock] = pm.SetRunBlock(chandle,preSamps,postSamps,TimeBase,OversampleRB,TimeIndisposedRB,
+                                    SegIndRB,LPReadyRB,PParamRB,Device)
+    assert_pico_ok(status[SBlock])
     
+    #Checks data colletion to finish the capture
+    ready = ctypes.c_int16(0)
+    check = ctypes.c_int16(0)
+  
+    # Wait until ready 
+    SReady = "IsReady_"+Device
+    while ready.value == check.value: 
+        status[SReady] = pm.IsReady(chandle,ctypes.byref(ready),Device)
 
-# INCOMPLETE - FIX LATER!
-    
-
-
+    return 0
 
 def GetSingleEvent():
     global status
@@ -252,6 +273,7 @@ def GetSingleEvent():
    
     status[SMem] = pm.MemorySegments(chandle,nSegMS,ctypes.byref(cmaxSamples),Device)
     assert_pico_ok(status[SMem])
+    
     #Set number of captures
     SCap = "SetNoOfCaptures_"+Device
     status[SCap] = pm.SetCaptures(chandle,nCapNC,Device)
@@ -261,7 +283,6 @@ def GetSingleEvent():
     SBlock = "RunBlock_"+Device
     status[SBlock] = pm.SetRunBlock(chandle,preSamps,postSamps,TimeBase,OversampleRB,TimeIndisposedRB,
                                     SegIndRB,LPReadyRB,PParamRB,Device)
-    #print("Not here yet?")
     assert_pico_ok(status[SBlock])
     
     #Checks data colletion to finish the capture
@@ -269,11 +290,10 @@ def GetSingleEvent():
     check = ctypes.c_int16(0)
   
     # Wait until ready 
-    #print("Ready")
     SReady = "IsReady_"+Device
     while ready.value == check.value: 
         status[SReady] = pm.IsReady(chandle,ctypes.byref(ready),Device)
-    #print("Done")
+    
     # Create buffers ready for assigning pointers for data collection
     bufferMax=[[],[],[],[]]
     bufferMin=[[],[],[],[]]
@@ -315,9 +335,6 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
     global chandle
    
     set_params(DevInfo,DaqInfo,ChanInfo,[status,chandle])
-    #print(DevInfo)
-    #print(DaqInfo)
-    #print(ChanInfo)
     initialised = False
     connected = False
      
@@ -328,7 +345,6 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
             if readCh_en[ch]==True or trigCh_en[ch]==True: 
                 channel_init(ch,couplings[ch])
         if DAQMode == 1:
-#            print("Setting simple trigger")
             SetSimpleTrigger()
         elif DAQMode == 2:
             SetAdvancedTrigger()
@@ -336,8 +352,9 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
     initialised = True
     CheckDir = os.path.exists(fPath)
     if not CheckDir: os.makedirs(fPath)
-    #print("Status at end of init")
-    #print(status)
+    #### take a single event just to wake it up!
+    SetTimeBase()
+    JustWakeUp()
     StatRet = [status,chandle]
     status = {}
     chandle = ctypes.c_int16()
@@ -371,7 +388,6 @@ def analyseData(data,figname):
             if readCh_en[ch]==False: continue
             
             adc2mVChMax=np.array(adc2mV(data[i][ch], chRange[ch], maxADC))
-            #avwf = Polarities[ch] * adc2mVChMax ### Skip averaging to speed up the daq..
             #baseline =avwf[:BaseWindow].mean()
             baseline=0
             if len(waveforms)==0:
@@ -388,9 +404,7 @@ def analyseData(data,figname):
             if ch==3:
                 ax4.plot(timeX, adc2mVChMax[:]-baseline)
 
-
     dataSave.append(waveforms)
-
     ax1.set_xlabel('Time (ns)')
     ax1.set_ylabel('Voltage (mV)')
     ax1.set_xlim(-1,(cmaxSamples.value) * tint + 1)
@@ -423,10 +437,6 @@ def run_daq(sub,Settings,Stat,RetStats,Ind):
     global chandle
 
   
-    #FinishRunFlag = False
-    print(Settings[0])
-    print(Settings[1])
-    print(Settings[2])
     set_params(Settings[0],Settings[1],Settings[2],Stat)
     SetTimeBase()
 
@@ -435,9 +445,12 @@ def run_daq(sub,Settings,Stat,RetStats,Ind):
     daqStart = time.time()
     data = []
 
+    if(Nevents<=100): PrintRate = 10
+    elif(Nevents<=500): PrintRate = 50
+    else: PrintRate = 100
 
     for iEv in range(Nevents):
-        #print("Event ",iEv,"/",Nevents," in device:",Device)
+        if(iEv % PrintRate ==0): print("Event ",iEv,"/",Nevents," in device:",Device)
         rawdata = GetSingleEvent()
         data.append(rawdata)
         time.sleep(100e-6)
