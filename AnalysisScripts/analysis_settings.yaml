@@ -13,7 +13,7 @@
 - Histogram:
     NumberOfBins: 150
     LowerRange  :  -5
-    UpperRange  : 145
-    LandauFit  : False
+    UpperRange  : 109
+    LandauFit  : True
     GaussianFit: False
     
