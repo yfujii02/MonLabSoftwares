@@ -7,14 +7,14 @@
     preSamples: 500 
     postSamples: 1500 
     Tbase: 2 
-    fName: '6000_BeamtTest_Apr25' 
+    fName: 'MPPC_DarkCurrent_May10_Test' 
     fPath: '/home/yfujii/work/data_2/'  #'/home/comet/work/data/' 
-    Nevents: 200
-    Nsubruns: 500
+    Nevents: 1000
+    Nsubruns: 2
 - ChannelSettings:
-    Vrange: [4,4,4,4,6,6] 
-    Rstatus: '1111' 
+    Vrange: [2,2,2,2,6,6] 
+    Rstatus: '1000' 
     Tstatus: '000001' 
     Tsimple: 5 
-    Tthresh: [0,0,0,0,1000,1000]
+    Tthresh: [0,0,0,0,100,25]
     Polarity: [1,1,1,1,1,1] 
