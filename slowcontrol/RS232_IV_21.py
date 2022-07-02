@@ -44,7 +44,7 @@ if(len(args)>1):
         sys.exit()
 if(ExitFlag==1): sys.exit()
 
-dOffset=256
+dOffset=120
 ############################################Initialisation Commands##############################################
 rm = visa.ResourceManager()
 print(rm.list_resources())

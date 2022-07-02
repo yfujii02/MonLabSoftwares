@@ -11,6 +11,7 @@ from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 import warnings
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
 #Global variables
+saveFig = False
 maxADC = ctypes.c_int16(32512) #define max ADC value
 homeDir = os.environ["HOME"] #home directory path
 connected = False #status flag for whether scope has been opened or not
@@ -368,22 +369,26 @@ def analyseData(data,figname):
     wfrms=np.array([])
     vmax=np.array([])
     charge=np.array([])
-    fig = plt.figure(figsize=(15,8))
-    gs = gridspec.GridSpec(4,4)
-    ax1 = plt.subplot(gs[0,:])
-    ax2 = plt.subplot(gs[1,:])
-    ax3 = plt.subplot(gs[2,:])
-    ax4 = plt.subplot(gs[3,:])
-
-    timeX = np.linspace(0, (cmaxSamples.value) * tint, cmaxSamples.value)
+    if (saveFig):
+        fig = plt.figure(figsize=(15,8))
+        gs = gridspec.GridSpec(4,4)
+        ax1 = plt.subplot(gs[0,:])
+        ax2 = plt.subplot(gs[1,:])
+        ax3 = plt.subplot(gs[2,:])
+        ax4 = plt.subplot(gs[3,:])
+        timeX = np.linspace(0, (cmaxSamples.value) * tint, cmaxSamples.value)
    
     chStatus=readCh_en+trigCh_en
     nEv = len(data)
     dataSave=["BEGINHEADER",chStatus,daqStart,daqEnd,nEv,maxSamples]
     waveforms={}
-  
+    #WaveformNSamples = preSamps + postSamps
+    #nReadChannels = np.sum(readCh_en)
+    #waveforms = np.zeros((nReadChannels*nEv,WaveformNSamples)) 
     #### Convert data from digits to mV
+    print("Before analysis loop") 
     for i in range(nEv):
+        count = 0
         for ch in range(4):
             if readCh_en[ch]==False: continue
             
@@ -394,35 +399,39 @@ def analyseData(data,figname):
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            
-            if ch==0:
-                ax1.plot(timeX, adc2mVChMax[:]-baseline)
-            if ch==1:
-                ax2.plot(timeX, adc2mVChMax[:]-baseline)
-            if ch==2:
-                ax3.plot(timeX, adc2mVChMax[:]-baseline)
-            if ch==3:
-                ax4.plot(timeX, adc2mVChMax[:]-baseline)
+            #waveforms([i*nReadChannels+count])=np.transpose(adc2mVChMax)
+            #print(len(waveforms[i*nReadChannels+count]))
+            if (saveFig): 
+                if ch==0:
+                    ax1.plot(timeX, adc2mVChMax[:]-baseline)
+                if ch==1:
+                    ax2.plot(timeX, adc2mVChMax[:]-baseline)
+                if ch==2:
+                    ax3.plot(timeX, adc2mVChMax[:]-baseline)
+                if ch==3:
+                    ax4.plot(timeX, adc2mVChMax[:]-baseline)
+            count=count+1
 
+    print("After analysis loop") 
     dataSave.append(waveforms)
-    ax1.set_xlabel('Time (ns)')
-    ax1.set_ylabel('Voltage (mV)')
-    ax1.set_xlim(-1,(cmaxSamples.value) * tint + 1)
-    ax2.set_xlabel('Time (ns)')
-    ax2.set_ylabel('Voltage (mV)')
-    ax2.set_xlim(-1,(cmaxSamples.value) * tint + 1)
 
-   
-    ax3.set_xlabel('Time(ns)')
-    ax3.set_ylabel('Voltage(mV)')
-    ax3.set_xlim(-1,(cmaxSamples.value) * tint + 1)
-    ax4.set_xlabel('Time (ns)')
-    ax4.set_ylabel('Voltage (mV)')
-    ax4.set_xlim(-1,(cmaxSamples.value) * tint + 1)
-
-
-    fig.savefig(homeDir+'/Desktop/'+figname)
-    plt.close(fig)
+    if(saveFig):
+        ax1.set_xlabel('Time (ns)')
+        ax1.set_ylabel('Voltage (mV)')
+        ax1.set_xlim(-1,(cmaxSamples.value) * tint + 1)
+        ax2.set_xlabel('Time (ns)')
+        ax2.set_ylabel('Voltage (mV)')
+        ax2.set_xlim(-1,(cmaxSamples.value) * tint + 1)
+       
+        ax3.set_xlabel('Time(ns)')
+        ax3.set_ylabel('Voltage(mV)')
+        ax3.set_xlim(-1,(cmaxSamples.value) * tint + 1)
+        ax4.set_xlabel('Time (ns)')
+        ax4.set_ylabel('Voltage (mV)')
+        ax4.set_xlim(-1,(cmaxSamples.value) * tint + 1)
+        print("Save figure") 
+        fig.savefig(homeDir+'/Desktop/'+figname)
+        plt.close(fig)
     
 
 
@@ -464,6 +473,7 @@ def run_daq(sub,Settings,Stat,RetStats,Ind):
     dataSave = {}
     print("Analysing and saving data from device ", Device)
     analyseData(data,"fig_pico_"+Device+".png")
+    print("Save")
     np.save(ofile,dataSave,allow_pickle=True)
     ofile.close
     print("Subrun complete in device ",Device)

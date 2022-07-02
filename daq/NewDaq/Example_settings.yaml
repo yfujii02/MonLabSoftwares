@@ -3,7 +3,7 @@
    typeDev: "6000" #which picoscope series
    numDev: "1" #which device if there are more than 1
 - DaqSettings:
-    Mode: 1 #DAQ run mode:1: single trigger mode
+    Mode: 1 #DAQ run mode:1: single trigger mode 2:multiple channels
     preSamples: 500 #number of samples before the trigger
     postSamples: 500 #number of samples after the trigger
     Tbase: 2 #timebase used 
@@ -26,4 +26,4 @@
     Tstatus: "000001" #trigger status of multiple channels: 1 = yes, 0 = no
     Tsimple: 5 #if DAQ mode is one, select trigger channel
     Tthresh: [0,0,0,0,0,500] #trigger threshold for each channel (mV)
-    Polarity: [1,1,1,1,1,1] #polarity settings for each channel as a trigger
+    Polarity: [1,1,1,1,1,1] #polarity settings for each channel as a trigger (+- 1)

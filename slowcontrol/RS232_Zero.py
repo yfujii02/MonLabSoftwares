@@ -17,7 +17,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 ##############################Connection Setup#############################################################
 #Set threshold voltage (ramp increment = 0.2 V above, 2.0 V below) 
-ThresholdVoltage=37.0 #currently set on assumption of 1 MPPC channel connected
+#ThresholdVoltage=37.0 #currently set on assumption of 1 MPPC channel connected
+ThresholdVoltage=75.0 #currently set on assumption of 1 MPPC channel connected
 
 rm = visa.ResourceManager()
 print(rm.list_resources())
@@ -78,7 +79,7 @@ if(VoltageRead>0.0):
         
         instrument.write(voltagecommand)
         
-        time.sleep(1)
+        time.sleep(0.2)
         
         instrument.write("INIT")
         instrument.write("FORM:ELEM VSO")

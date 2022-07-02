@@ -4,17 +4,17 @@
    numDev: '1' 
 - DaqSettings:
     Mode: 1 
-    preSamples: 500 
-    postSamples: 1500 
+    preSamples: 2000 
+    postSamples: 2000 
     Tbase: 2 
-    fName: 'MPPC_DarkCurrent_May10_Test' 
-    fPath: '/home/yfujii/work/data_2/'  #'/home/comet/work/data/' 
-    Nevents: 1000
-    Nsubruns: 2
+    fName: 'Test_July2_6000_Counter2' 
+    fPath: '/home/comet/work/data/Counter2TestJuly2' 
+    Nevents: 10 
+    Nsubruns: 100 
 - ChannelSettings:
-    Vrange: [2,2,2,2,6,6] 
-    Rstatus: '1000' 
-    Tstatus: '000001' 
-    Tsimple: 5 
-    Tthresh: [0,0,0,0,100,25]
-    Polarity: [1,1,1,1,1,1] 
+    Vrange: [4,4,4,4,6,6] 
+    Rstatus: '1111' 
+    Tstatus: '110000' 
+    Tsimple: 0 
+    Tthresh: [-20,-20,0,0,0,0]
+    Polarity: [0,0,1,1,1,1] 

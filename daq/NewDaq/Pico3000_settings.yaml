@@ -7,14 +7,14 @@
     preSamples: 100 
     postSamples: 300 
     Tbase: 2 
-    fName: '3000_BeamTest_Apr25' 
-    fPath: '/home/yfujii/work/data_2/' #'/home/comet/work/data/' 
-    Nevents: 200
-    Nsubruns: 500
+    fName: 'Test_June29__3000' 
+    fPath: '/home/comet/work/data/' #'/home/comet/work/data/' 
+    Nevents: 20
+    Nsubruns: 10
 - ChannelSettings:
     Vrange: [6,4,4,4,6,6] 
     Rstatus: '1111' 
     Tstatus: '100000' 
     Tsimple: 0 
-    Tthresh: [1000,1000,0,0,0,0] 
+    Tthresh: [50,1000,0,0,0,0] 
     Polarity: [1,1,1,1,1,1] 

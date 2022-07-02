@@ -75,7 +75,7 @@ class ExtractWfInfo():
     def getChargeArray(self):
         charges=[]
         for i in range(len(self.wfList)):
-            charges.append(self.getHeight(i))
+            charges.append(self.getCharge(i))
         return charges
     #Added Feb 27 2022
     def getPeakIndexArray(self):
@@ -95,12 +95,13 @@ HeaderInfo = []
 WfData     = []
 RemoveNoisyEvent=False
 NCh   = 0
+Nevents = 0
 
 #Global variables
 SigLower = 0
 SigUpper = 400
 BaseUpper = 100
-Polarity  = -1
+Polarity  = [1,1,1,1,1]
 
 ### Flags for each filtering
 MovAvF = 0
@@ -122,7 +123,7 @@ TimeScale     = 0.8 # It's 4ns/sample for PS3000
 RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
 
 ConstantFraction=0.15
-PeakThreshold=10
+PeakThreshold=[10,10,10,10,40]
 
 ##def Initialise(): # to be implemented
 #### Basic functions
@@ -143,9 +144,9 @@ def SetBins(nbins,lower,upper):
     RangeLower    = lower
     return 0
 
-def SetPolarity(val):
+def SetPolarity(vals):
     global Polarity
-    Polarity = val
+    Polarity = np.array(vals).astype(int)
 
 def SetTimeScale(val):
     global TimeScale
@@ -165,9 +166,9 @@ def SetSignalWindow(sigL,sigU,baseU=100):
     TimeUpper = SigUpper + 1
     TimeBins  = int((TimeUpper-TimeLower)/2)
 
-def SetPeakThreshold(val):
+def SetPeakThreshold(vals):
     global PeakThreshold
-    PeakThreshold = val
+    PeakThreshold = np.array(vals).astype(float)
 
 def SetConstantFraction(val):
     global ConstantFraction
@@ -311,8 +312,9 @@ def EnableBaselineFilter():
 
 ### Get the index where waveform exceeds the certain threshold
 ### Put the waveform, Wf[AnalysisWindow:PeakIdx+1] as Wf
-def GetEdgeTime(Wf,constantFraction=True):
-    threVal = PeakThreshold
+def GetEdgeTime(Wf,Ch,constantFraction=True):
+    if(Ch=='Sum'):threVal = PeakThreshold[4]
+    else: threVal = PeakThreshold[int(Ch)]
     if constantFraction==True:
         threVal = ConstantFraction*np.max(Wf)
     ret = np.where(Wf<threVal)
@@ -334,7 +336,8 @@ def ProcessAWaveform(Ch,Signal):
     if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
     if(MovAvF==1): Signal = MovAvFilter(Signal)
     if(BaseF ==1): Signal = BaselineFilter(Signal)
-    Signal = Polarity*Signal
+    if(Ch=='Sum'): Signal = Polarity[4]*Signal 
+    else: Signal = Polarity[int(Ch)]*Signal
     ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
     
     #Calculate RMS of baseline area before signal window
@@ -343,11 +346,18 @@ def ProcessAWaveform(Ch,Signal):
     #Extract output analysis parameter from waveform
     PeakVal   = np.max(Signal[SigLower:SigUpper])
     PeakIndex = np.argmax(Signal[SigLower:SigUpper])+SigLower
-    if(PeakVal>PeakThreshold):
-        EdgeTime = GetEdgeTime(Signal[SigLower:PeakIndex+1])+SigLower*TimeScale
+    if(Ch=='Sum'):
+        if(PeakVal>PeakThreshold[4]):
+            EdgeTime = GetEdgeTime(Signal[SigLower:PeakIndex+1],Ch)+SigLower*TimeScale
+        else:
+            EdgeTime = -1
     else:
-        EdgeTime = -1
-    ChargeVal = simps(Signal,ChT) # scipy integration function
+        if(PeakVal>PeakThreshold[int(Ch)]):
+            EdgeTime = GetEdgeTime(Signal[SigLower:PeakIndex+1],Ch)+SigLower*TimeScale
+        else:
+            EdgeTime = -1
+
+    ChargeVal = simps(Signal[SigLower:SigUpper],ChT[SigLower:SigUpper]) # scipy integration function
     
     #Append outputs
     return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS,EdgeTime)
@@ -361,7 +371,7 @@ def HistogramFit(x,*params):
         y = y + amplitude * np.exp(-((x-mean)/sigma)**2)
     return y  
   
-def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
+def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData,PlotFig=False): #pdist,threshold,subplot,Ped_Peak,SP_Peak,uPed,uSP):
     #Take collected channel data from all files to be analysed and plot histogram
     #Data for a given channel
     #RangeUpper,RangeLower = range of histogram
@@ -371,16 +381,21 @@ def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData): #pdist,thres
     colour = 'purple'
     alpha = 0.5
     
-    plt.figure()
+    if(PlotFig):plt.figure()
     CurrentN,CurrentBins,_=plt.hist(Data,range=[RangeLower,RangeUpper],bins=NBins,color=colour,alpha=alpha)
-    plt.title(String)
-    plt.xlabel(strData)
-    plt.ylabel("Count")
-
+    if(PlotFig):
+        plt.title(String)
+        plt.xlabel(strData)
+        plt.ylabel("Count")
+    
     return CurrentBins , CurrentN
+
+def GetNumEvents():
+    return Nevents
 
 def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     global FileLoaded
+    global Nevents
     #Takes a file path and analyses all waveforms in the file
     #Returns an output with form [[PeakIndex, PeakValue, ChargeValue, BaselineRMS],...,[]] containing info for each waveform
         #PeakIndex   = Index within file of analysed value (i.e. index of signal peak)
@@ -394,6 +409,7 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     
     NWaveforms = len(Waveforms[0]) #All channels have same number of waveforms
     TRate = (HeaderInfo[0][4]/(HeaderInfo[0][3]-HeaderInfo[0][2]))
+    Nevents += NWaveforms
     
     for i in range(NWaveforms):
         NoisyEvent=False
@@ -412,18 +428,20 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     FileLoaded = False
     return TRate
 
-def AnalyseFolder(FPath,PlotFlag=False):
+def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     #Analyse all data files in folder located at FPath
     #PlotFlag is an option to output histograms or not
     
     MeanTR = 0
     
     FList = FileList(FPath)
+    if end==0:
+        end = len(FList)
     TriggerRates = []
    
     FileOutputs=[[],[],[],[]]  # 4channels
     SumOutputs=[]
-    for i in range(len(FList)):
+    for i in range(start,end):
         print("Analysing file:",FList[i][len(FPath)-1:])
         TRate = AnalyseSingleFile(FList[i],FileOutputs,SumOutputs)
         TriggerRates.append(TRate)
@@ -435,11 +453,17 @@ def AnalyseFolder(FPath,PlotFlag=False):
     ChHistData=[]
     for ch in range(NCh): 
         dataArray = ExtractWfInfo(FileOutputs[ch])
-        print(dataArray)
+        #print(dataArray)
         heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-        print(heightArray)
+        #print(heightArray)
         nBins, vals = PlotHistogram(heightArray,RangeLower,RangeUpper,NBins,str(dataArray.getChannel(0)),
                 "Peak height [mV]")
+        ChHistData.append(nBins)
+        ChHistData.append(vals)
+
+        chargeArray = np.array(dataArray.getChargeArray(),dtype=np.float)
+        nBins, vals = PlotHistogram(chargeArray,RangeLower,RangeUpper*TimeScale*(SigUpper-SigLower)/4.0,NBins,str(dataArray.getChannel(0)),
+                "Charge [mV*ns]")
         ChHistData.append(nBins)
         ChHistData.append(vals)
 
@@ -449,22 +473,22 @@ def AnalyseFolder(FPath,PlotFlag=False):
         nBinsT, valsT = PlotHistogram(timearray,TimeScale*TimeLower,TimeScale*TimeUpper,TimeBins,str(dataArray.getChannel(0)),
                 #"Peak Time (ns)")
                 "Edge Time (ns)")
-        #ChHistData.append(nBinsT)
-        #ChHistData.append(valsT)        
+        ChHistData.append(nBinsT)
+        ChHistData.append(valsT)        
         TimePeak = nBinsT[np.argmax(valsT)]
         print("EdgeTime = %s ns" %(TimePeak))
 
     #Plot summed channel histogram
-    dataArray = ExtractWfInfo(SumOutputs)
-    print(dataArray)
-    heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-    nBins, vals = PlotHistogram(heightArray,4*RangeLower,4*RangeUpper,int(2*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
-    ChHistData.append(nBins)
-    ChHistData.append(vals)
+    #dataArray = ExtractWfInfo(SumOutputs)
+    #print(dataArray)
+    #heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
+    #nBins, vals = PlotHistogram(heightArray,4*RangeLower,4*RangeUpper,int(2*NBins),str(dataArray.getChannel(0)),"Peak height [mV]") 
+    #ChHistData.append(nBins)
+    #ChHistData.append(vals)
     
     # Return data in form NCh, MeanTR, [ChABin,ChAN,...]
     ChHistData = np.array(ChHistData)
-    return NCh, MeanTR, ChHistData 
+    return NCh, MeanTR, ChHistData, Nevents 
 
 
 #### Following Specific Analysis Function should be moved to outside
