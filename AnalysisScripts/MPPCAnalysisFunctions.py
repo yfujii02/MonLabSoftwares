@@ -378,11 +378,12 @@ def PlotHistogram(Data,RangeLower,RangeUpper,NBins,String,strData,PlotFig=False)
     #NBins = number of bins
     #String = title string on plot
     
-    colour = 'purple'
+    #colour = 'purple'
     alpha = 0.5
     
     if(PlotFig):plt.figure()
-    CurrentN,CurrentBins,_=plt.hist(Data,range=[RangeLower,RangeUpper],bins=NBins,color=colour,alpha=alpha)
+    #CurrentN,CurrentBins,_=plt.hist(Data,range=[RangeLower,RangeUpper],bins=NBins,color=colour,alpha=alpha)
+    CurrentN,CurrentBins,_=plt.hist(Data,range=[RangeLower,RangeUpper],bins=NBins,alpha=alpha)
     if(PlotFig):
         plt.title(String)
         plt.xlabel(strData)
