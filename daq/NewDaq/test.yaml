@@ -1,0 +1,20 @@
+---
+- DeviceSettings:
+   typeDev: '6000'
+   numDev: '1' 
+- DaqSettings:
+    Mode: 1 
+    preSamples: 500 
+    postSamples: 1500 
+    Tbase: 2 
+    fName: 'Test_Jun29' 
+    fPath: '/home/comet/work/data/'  #'/home/comet/work/data/' 
+    Nevents: 10
+    Nsubruns: 2
+- ChannelSettings:
+    Vrange: [2,2,2,2,6,6] 
+    Rstatus: '1000' 
+    Tstatus: '000001' 
+    Tsimple: 5 
+    Tthresh: [0,0,0,0,100,25]
+    Polarity: [1,1,1,1,1,1] 

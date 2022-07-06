@@ -1,0 +1,7 @@
+---
+- SignalInfo:
+   PeakToPeak: 1000000
+   WaveType: "SQUARE"
+   nShots: 1
+   SigFreq: 10
+   SigOffset: 500000  

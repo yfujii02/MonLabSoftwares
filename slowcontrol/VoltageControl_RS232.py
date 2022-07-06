@@ -117,7 +117,7 @@ CompFlag = 0 #flag for checking current limiting error
 
 EndFlag = 0 #flag for checking whether still operating or ramping down to finish script
 ###################################Set Voltage Range Function######################################################
-def SetRange(VoltageLevel):
+def SetRange(VoltageLevel,instrument):
     global RangeVoltage
     RangeVoltage = 0.0
     if(VoltageLevel<10.0):
@@ -136,7 +136,7 @@ def SetRange(VoltageLevel):
         print("Error! Voltage must be between 0.0 and 500.0 V!")
         sys.exit()
 ##################################Read Voltage Function##########################################################################
-def ReadVoltage():
+def ReadVoltage(instrument):
     instrument.write("INIT")
     instrument.write("FORM:ELEM VSO")
     instrument.write("READ?")
@@ -145,7 +145,7 @@ def ReadVoltage():
     VoltageRead = np.round(VoltageRead,2)
     return VoltageRead
 #################################Ramp Down Function##############################################################################
-def ZeroVoltage(VoltageRead):
+def ZeroVoltage(VoltageRead,instrument):
     while(VoltageRead>0.0):
         if(VoltageRead>ThresholdVoltage):
             VoltageRead-=ThreshIncrement

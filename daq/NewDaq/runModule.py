@@ -30,6 +30,24 @@ def load_dev(config_file):
             ChannelSettings = config[2]["ChannelSettings"]
         return DeviceSettings, DaqSettings, ChannelSettings
 
+def load_sig(sig_file):
+    if(sig_file=="Example_settings.yaml" or sig_file =='-help'):
+        fileEx = open('Example_settings.yaml')
+        print("Contents of example settings file (Example_settings.yaml):")
+        print("##################################")
+        print(" ")
+        for line in fileEx:
+            print(line)
+        print("##################################")
+        print(" ")
+        return 0,0,0
+    else:
+        with open(sig_file,"r") as f:
+            sig = yaml.safe_load(f)
+            SigSettings = sig[0]["SigSettings"]
+        return SigSettings
+    
+
 def InitDAQ(DeviceInfo,DAQSettings,ChannelSettings):
     Stat = daq.init_daq(DeviceInfo,DAQSettings,ChannelSettings) #initialise daq with specified parameters
     return Stat
@@ -53,6 +71,12 @@ def RunDAQ(SubRun,Settings,Stat):
             if(RetStats[l+1]==False):Check=False
     for p in Processes: p.join()
     return RetStats
+
+def RunAmpDAQ(SubRun,Settings,Stat,SigGen):
+    #Collect specified number of pulse captures
+    daq0.run_amp_daq(SubRun,Settings,Stat,SigGen)    
+
+
 
 def CloseDAQs(Settings,Stat): 
     for i in range(len(Settings)): daq.close(Settings[i],Stat[2*i]) #close the daq
