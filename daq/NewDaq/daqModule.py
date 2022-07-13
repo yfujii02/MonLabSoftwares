@@ -88,6 +88,18 @@ def ConvertStatus(string):
         ChStat.append(bool(int(string[i])))
     return ChStat
 
+def set_siggen(SignalInfo):
+    global PkPk
+    PkPk = SignalInfo["PeakToPeak"]
+    global Shots
+    Shots = SignalInfo["nShots"]
+    global SigFreq
+    SigFreq = SignalInfo["SigFreq"]
+    global SigOffset
+    SigOffset = SignalInfo["SigOffset"]
+    global WType
+    WType = SignalInfo["WaveType"]
+
 def set_params(DevInfo,DAQInfo,ChInfo,Stat):
     global status
     global chandle
@@ -329,6 +341,95 @@ def GetSingleEvent():
     return data
 
 
+def GetSigShot():
+    #Only use with pico6000 - to be integrated with psModule.py later
+    global chandle
+    global status
+    global cmaxSamples
+
+    #Set Sig Gen Parameters
+    #For square wave, WaveType = SQUARE
+    wavetype = "PS6000_"+WType
+    #print("Wavetype = ",wavetype)
+    
+    #Other parameters we don't care about for now
+    sweepType = ctypes.c_int32(0)
+    Sweeps = 0
+    SDwell = 0 
+    SInc = 0
+    opType = 0
+ 
+    #Want to trigger on aux input - threshold must be same as daq set threshold
+    SigTriggerType = "PS6000_SIGGEN_RISING"
+    SigTriggerSource  = "PS6000_SIGGEN_AUX_IN"
+    extInThreshold = mV2adc(TrigPolarity*TrigThresh[SimpleTrigCh],chRange[SimpleTrigCh],maxADC)
+    
+    #Set up data collection  
+    Overflow = ctypes.c_int16() #create overflow location for data
+    SMem = "MemSegments_"+Device
+   
+    status[SMem] = pm.MemorySegments(chandle,nSegMS,ctypes.byref(cmaxSamples),Device)
+    assert_pico_ok(status[SMem])
+    
+    #Set number of captures
+    SCap = "SetNoOfCaptures_"+Device
+    status[SCap] = pm.SetCaptures(chandle,nCapNC,Device)
+    assert_pico_ok(status[SCap]) 
+   
+    #Start block capture
+    SBlock = "RunBlock_"+Device
+    status[SBlock] = pm.SetRunBlock(chandle,preSamps,postSamps,TimeBase,OversampleRB,TimeIndisposedRB,
+                                    SegIndRB,LPReadyRB,PParamRB,Device)
+    assert_pico_ok(status[SBlock])
+    
+    #Checks data colletion to finish the capture
+    ready = ctypes.c_int16(0)
+    check = ctypes.c_int16(0)
+    SReady = "IsReady_"+Device
+    SSigGen = "SetSigGenBuiltIn_"+Device    
+
+    #Produce shot - same trigger as daq using AUX input
+    status[SSigGen]=pm.SetSigGenBuiltIn(chandle,SigOffset,PkPk,wavetype,SigFreq,SigFreq,SInc,SDwell,sweepType,opType,
+                                        Shots,Sweeps,SigTriggerType,SigTriggerSource,extInThreshold)
+
+    # Wait until ready 
+    while ready.value == check.value: 
+        status[SReady] = pm.IsReady(chandle,ctypes.byref(ready),Device)
+    
+    # Create buffers ready for assigning pointers for data collection
+    bufferMax=[[],[],[],[]]
+    bufferMin=[[],[],[],[]]
+    status_str=["SetDataBuffersA_"+Device,"SetDataBuffersB_"+Device,
+                "SetDataBuffersC_"+Device,"SetDataBuffersD_"+Device]
+    
+    for ch in range(4):
+        if readCh_en[ch]==True:
+            bufferMax[ch] = (ctypes.c_int16 * maxSamples)()
+            bufferMin[ch] = (ctypes.c_int16 * maxSamples)() #can be used for downsampling
+           
+            # Setting the data buffer location for data collection from channel [ch]
+            status[status_str[ch]] = pm.SetDataBuffers(chandle, ch, ctypes.byref(bufferMax[ch]),
+                                                       ctypes.byref(bufferMin[ch]), maxSamples,SegIndDB,
+                                                       DownRatioModeDB,Device)
+            assert_pico_ok(status[status_str[ch]])
+  
+    #Get values from buffer
+    SGetVals = "GetValues_"+ Device
+    status[SGetVals] = pm.GetValues(chandle, StartIndexGV, ctypes.byref(cmaxSamples), DownRatioGV, 
+                                             DownRatioModeGV, SegIndGV, ctypes.byref(Overflow),
+                                             Device)
+    assert_pico_ok(status[SGetVals])
+
+    data=[[],[],[],[]]
+    for ch in range(4):
+        if readCh_en[ch]==True:
+            data[ch]=bufferMax[ch]
+        else:
+            data[ch]=0 #don't care about ch data we don't want to read
+     
+    return data
+
+
 def init_daq(DevInfo,DaqInfo,ChanInfo):
     global initialised
     global connected
@@ -481,6 +582,53 @@ def run_daq(sub,Settings,Stat,RetStats,Ind):
     RetStats[Ind+1] = True
     status = {}
     chandle = ctypes.c_int16()
+
+def run_amp_daq(sub,Settings,Stat,SignalSettings):
+    global ofile
+    global dataSave
+    global daqStart
+    global daqEnd
+    global initialised
+    global connected
+    global status
+    global chandle
+
+  
+    set_params(Settings[0],Settings[1],Settings[2],Stat)
+    set_siggen(SignalSettings)
+    SetTimeBase()
+
+    fName_file = fPath+'/data'+str(sub)+'.npy'
+    ofile = open(fName_file,"wb")
+    daqStart = time.time()
+    data = []
+
+    if(Nevents<=100): PrintRate = 10
+    elif(Nevents<=500): PrintRate = 50
+    else: PrintRate = 100
+    
+    for iEv in range(Nevents):
+        if(iEv % PrintRate ==0): print("Capture ",iEv,"/",Nevents," in device:",Device)
+        rawdata = GetSigShot()
+        data.append(rawdata)
+        time.sleep(100e-6)
+     
+    daqEnd = time.time()
+   
+    print('Trigger rate = ',float(Nevents)/(daqEnd-daqStart),' Hz')
+    SStop = "Stop_"+Device
+    status[SStop]=pm.StopScope(chandle,Device)
+    assert_pico_ok(status[SStop])
+    dataSave = {}
+    print("Analysing and saving data from device ", Device)
+    analyseData(data,"fig_pico_"+Device+".png")
+    print("Save")
+    np.save(ofile,dataSave,allow_pickle=True)
+    ofile.close
+    print("Subrun complete in device ",Device)
+    status = {}
+    chandle = ctypes.c_int16()
+
 
 def close(Settings,Stat):
     global status

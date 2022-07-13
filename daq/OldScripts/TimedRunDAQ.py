@@ -1,13 +1,14 @@
 import time
 import sys
-import NewDAQ
+import myTestDAQ
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from multiprocessing import Process
 
 ### global parameters
 num_events=100
 num_subruns=1
+num_runs = 1
+num_delay=1
 daqMode=3
 fname='fileName'
 threshold=100
@@ -17,21 +18,9 @@ threshold=100
 # Thresholds in mV
 # DAQ mode (pedestal or selftrigger)
 #readchannel="1111" # Read    channels for ABCD. Corresponding channel is read if it's not zero (1)
-#readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
-#trigchannel="0111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
-#Set B,C,D as trigger channels for scint-fibre tests 24/02
-readchannel =["1111"]
-#readchannel =["1111"]
-#readchannel="1111" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1) Dark Count Test 17/09
-
-#Set B as trigger channel for dark count test 17/09
-#trigchannel='0100'
-#Set all as trigger channel for scint test 12/10
-trigchannel=["1111"]
-#trigchannel=["1111"]
-#trigchannel='1000'
-
-#trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+readchannel="1100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+#trigchannel="0011" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
+trigchannel="0100" # Trigger channels for ABCD. Corresponding channel is used in trigger if it's not zero (1)
 
 #genPulseV=1.000*2.0  # in V used for 385nm
 #genPulseV=0.870*2.0  # in V used for 405nm
@@ -57,19 +46,9 @@ genPulseRate=20  # in MHz
 # 7 = 2 V
 # 8 = 5 V 
 # 9 = 10 V 
-#volRanges="6733"
-#volRanges="6555"
-#volRanges="2444" #2021 dark count test
-#volRanges="5555" #13/12/21 scint test
-volRanges=["3333"]
-#volRanges=["4444"]
-#volRanges="3444" #13/12/21 scint test
+volRanges="6733"
 
 plotEachFig=False
-
-
-devList = ["3000"]
-#devList=["6000"]
 
 def setPlotEachFig(val):
     global plotEachFig
@@ -77,16 +56,10 @@ def setPlotEachFig(val):
     return val
 
 def initDAQ(mode):
-    print("000")
-    #Adding additional parameter called device list
-    #myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
-    NewDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges,devList)
-    print("001")
+    myTestDAQ.set_params(num_events, threshold, daqMode, fname, readchannel, trigchannel, volRanges)
     if mode==3:
-        print("002")
-        NewDAQ.set_pulseParam(int(genPulseV*1e6), int(genPulseRate*1e6))
-    print("003")
-    NewDAQ.init_daq()
+        myTestDAQ.set_pulseParam(int(genPulseV*1e6), int(genPulseRate*1e6))
+    myTestDAQ.init_daq()
     return True
 
 ## If you want to call the main function from jupyter-lab/jupyter-notebook or other python,
@@ -108,41 +81,37 @@ def setParameters(val0,val1,val2,val3,val4):
     readchannel="1100" # Temporary hardcoded
     trigchannel="0100" # Temporary hardcoded
     volRanges  ="6733" # Temporary hardcoded
-    setPlotEachFig(True) 
-
+    setPlotEachFig(True)
 
 def main():
     initDAQ(daqMode)
-    StartProgramTime = time.time() #So I can see how many events we get in the time we run for (24/02)    
-    print("Start time = ",StartProgramTime)
-    for i in range(num_subruns):
-        print('Sub run: ',i,'/',num_subruns)
-        Start = time.time()
-        processes=[]
-        for j in range(len(devList)):
-            p = Process(target=NewDAQ.run_daq(i,0,j))
-            p.start() 
-            processes.append(p)
-        
-        for p in processes: p.join()  
-          
-        End = time.time()
-        eTime = End-Start
-        print("RunDaq Time = ", eTime)
-        TimeOutFlag=NewDAQ.getTimeOutFlag()
-        if(TimeOutFlag==True):
-            print("Resetting DAQ...") 
-            TimeOutFlag==False
-            NewDAQ.close()
+    for r in range(num_runs):
+        print('Run: ',r,'/',num_runs)
+        for i in range(num_subruns):
+            print('Sub run: ',i,'/',num_subruns)
+            Start = time.time()
+            myTestDAQ.run_daq(i,r+1)
+            End = time.time()
+            eTime = End-Start
+            print("RunDaq Time = ", eTime)
+            if plotEachFig==True:
+                img = mpimg.imread('/home/comet/Desktop/figA.png')
+                imgplot = plt.imshow(img)
+                plt.show()
+            TimeOutFlag=myTestDAQ.getTimeOutFlag()
+            if(TimeOutFlag==True):
+                 print("Resetting DAQ...") 
+                 TimeOutFlag==False
+                 myTestDAQ.close()
+                 time.sleep(1)
+                 initDAQ()
             time.sleep(1)
-            initDAQ()
-        time.sleep(1)
-    for l in range(len(devList)):
-        NewDAQ.close(l)
+        time.sleep(num_delay*60)
+    myTestDAQ.close()
 
 if __name__ == "__main__":
     args=sys.argv
-    if len(args)!=6:
+    if len(args)!=8:
         print("Wrong number of arguments!!")
         print("Usage :\n python3 ",args[0]," [1] [2] [3]")
         print("     [1] : Number of events per each sub run ")
@@ -151,9 +120,10 @@ if __name__ == "__main__":
         print("                     1: Two hits coincidence for negative signal")
         print("                     2: Two hits coincidence for positive signal")
         print("                     3: Channel B trigger + signal gen")
-        print("                     4: AUX trigger")
         print("     [4] : Output file name                  ")
         print("     [5] : Threshold in mV                   ")
+        print("     [6] : Time period to wait between runs (in minutes)")
+        print("     [7] : Number of runs, with wait period of arg[6] between runs")    
         exit()
     print('Number of events per each sub run:',args[1])
     print('Number of subruns for each run   :',args[2])
@@ -162,23 +132,24 @@ if __name__ == "__main__":
     print("                     1: Two hits coincidence for negative signal")
     print("                     2: Two hits coincidence for positive signal")
     print("                     3: Channel B trigger + signal gen")
-    print("                     4: AUX trigger")
     print('Output file name w/o ".XXX"      :',args[4])
     print('Threshold in mV                  :',args[5])
+    print("%s runs with delay of %s minutes between" %(args[7], args[6]))
 
     num_events=int(args[1])
     num_subruns=int(args[2])
-    if num_subruns<1 or num_events<1:
+    num_runs = int(args[7])
+    num_delay = int(args[6])
+    if num_subruns<1 or num_events<1 or num_runs<1:
         print("You're wrong!")
         exit()
     daqMode=int(args[3])
-    if daqMode<0 or daqMode>4:
+    if daqMode<0 or daqMode>3:
         print("Invalid DAQ mode ", daqMode)
         print("                     0: pedestal trigger     ")
         print("                     1: Two hits coincidence for negative signal")
         print("                     2: Two hits coincidence for positive signal")
         print("                     3: Channel B trigger + signal gen")
-        print("                     4: AUX trigger")
         exit()
 
     fname=args[4]

@@ -1,0 +1,51 @@
+max samples 400
+Number of events per each sub run: 1000
+Number of subruns for each run   : 1000
+DAQ mode                         : 3
+                     0: pedestal trigger     
+                     1: Two hits coincidence for negative signal
+                     2: Two hits coincidence for positive signal
+                     3: Channel B trigger + signal gen
+Output file name w/o ".XXX"      : Nov25_hv42_1m_plastic_LED470nm_measure32
+Threshold in mV                  : 150
+Read ch status
+[True, True, False, False]
+Trig ch status
+[False, True, False, False]
+Number of events to be collected:  1000
+Pulse Voltage= 700.0  [mV], Pulse Rate= 20.0  [MHz]
+1
+Init ch 0
+setChA   6   2
+Init ch 1
+setChB   7   2
+Trigger ch:  1
+threshold= 150.0 , ( 2438  in COUNT)
+Polarity =  1
+Sub run:  0 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
+Trigger rate =  191.65632525586824  Hz
+Mean of max height =  620.6689538807649  mV
+RunDaq Time =  9.198912382125854
+Sub run:  1 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
+Trigger rate =  197.41995434064845  Hz
+Mean of max height =  620.1199100112486  mV
+RunDaq Time =  6.590226411819458
+Sub run:  2 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
+Trigger rate =  195.3505377455881  Hz
+Mean of max height =  622.9763779527559  mV
+RunDaq Time =  6.773355007171631
+Sub run:  3 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
+Trigger rate =  197.45538286078744  Hz
+Mean of max height =  614.0017997750282  mV
+RunDaq Time =  6.643096446990967
+Sub run:  4 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
+Trigger rate =  192.85382606167556  Hz
+Mean of max height =  613.7770528683914  mV
+RunDaq Time =  6.738811492919922
+Sub run:  5 / 1000
+integration from  80.0000011920929  to  136.00000202655792  [ns]
