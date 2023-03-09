@@ -1,0 +1,20 @@
+---
+- DeviceSettings:
+   typeDev: '6000'
+   numDev: '1' 
+- DaqSettings:
+    Mode: 1 
+    preSamples: 400 
+    postSamples: 400 
+    Tbase: 2 
+    fName: 'Mar8_Run2' 
+    fPath: '/home/samd/MonLabSoftwares/data/'
+    Nevents: 2000
+    Nsubruns: 25
+- ChannelSettings:
+    Vrange: [5,4,4,4,6,6] 
+    Rstatus: '1100' 
+    Tstatus: '010000' 
+    Tsimple: 1 
+    Tthresh: [10,-40,0,0,0,0]
+    Polarity: [-1,-1,1,1,1,1] 

@@ -180,9 +180,11 @@ def SetSimpleTrigger():
     global chandle
     
     #Channel, polarity and threshold of trigger determined from settings file 
-    direction = pm.SetThresholdDirection(bool(TrigPolarity),True,Device) #direction of trigger
+    if(TrigThresh[SimpleTrigCh]>=0): 
+        direction = pm.SetThresholdDirection(True,True,Device) #direction of trigger
+    elif(TrigThresh[SimpleTrigCh]<0):  direction = pm.SetThresholdDirection(False,True,Device) #direction of trigger
     #Threshold in mV = TrigPolarity * TrigThresh [SimpleTrigCh], converted to ADC count
-    threshADC = mV2adc(TrigPolarity*TrigThresh[SimpleTrigCh],chRange[SimpleTrigCh],maxADC)
+    threshADC = mV2adc(TrigThresh[SimpleTrigCh],chRange[SimpleTrigCh],maxADC)
     STrig = "Trigger_"+Device+"_Ch_"+str(SimpleTrigCh)
     status[STrig] = pm.SetSimpleTrigger(chandle,EnableTrig,SimpleTrigCh,threshADC,direction,DelayTrig,AutoTrig,Device)
     assert_pico_ok(status[STrig])
