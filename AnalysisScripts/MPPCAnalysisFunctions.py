@@ -96,6 +96,7 @@ WfData     = []
 RemoveNoisyEvent=False
 NCh   = 0
 Nevents = 0
+DataOut=False
 
 #Global variables
 SigLower = 0
@@ -143,6 +144,13 @@ def SetBins(nbins,lower,upper):
     RangeUpper    = upper
     RangeLower    = lower
     return 0
+
+OutputFileName='hoge.npy'
+def SetDataOut(outputName):
+    global DataOut
+    global OutputFileName
+    DataOut=True
+    OutputFileName=outputName
 
 def SetPolarity(vals):
     global Polarity
@@ -213,27 +221,29 @@ def MovAvFilter(Signal):
     
     return Signal
  
-def PlotWaveformsFromAFile(FName):
+def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
     #Plot all waveforms from a given file
-    if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
+    if (LoadFile(FName)==False):ErrorExit("PlotWaveforms()")
 
     Waveforms,SumWaveforms = DecodeChannels(FName)  
     for ch in range(NCh): 
+        if (plotch>0 and ch!=plotch): continue
         plt.figure()
         for i in range(len(Waveforms[ch])):
             #plt.figure()
+            if (start>=0 and i<start): continue
+            if (end>=0   and i>end)  : break
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
             plt.title("Ch "+str(ch))
             plt.plot(Waveforms[ch][i],alpha=0.1)
-       
-    if NCh>1: 
-        plt.figure()
-        plt.xlabel("Time (a.u.)")
-        plt.ylabel("Voltage (mV)")
-        plt.title("Summed Waveforms")
-        for i in range(len(SumWaveforms)):
-            plt.plot(SumWaveforms[i],alpha=0.1)
+    #if NCh>1: 
+    #    plt.figure()
+    #    plt.xlabel("Time (a.u.)")
+    #    plt.ylabel("Voltage (mV)")
+    #    plt.title("Summed Waveforms")
+    #    for i in range(len(SumWaveforms)):
+    #        plt.plot(SumWaveforms[i],alpha=0.1)
                 
 
 def FileList(FPath):
@@ -452,6 +462,9 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     MeanTR = np.mean(TriggerRates)
     
     ChHistData=[]
+    heightArrays=[[],[],[],[]]
+    chargeArrays=[[],[],[],[]]
+    timeArrays=[[],[],[],[]]
     for ch in range(NCh): 
         dataArray = ExtractWfInfo(FileOutputs[ch])
         #print(dataArray)
@@ -478,6 +491,14 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
         ChHistData.append(valsT)        
         TimePeak = nBinsT[np.argmax(valsT)]
         print("EdgeTime = %s ns" %(TimePeak))
+        if DataOut==True:
+            heightArrays[ch] = np.array(dataArray.getHeightArray(),dtype=np.float)
+            chargeArrays[ch] = np.array(dataArray.getChargeArray(),dtype=np.float)
+            timeArrays[ch]   = np.array(dataArray.getEdgeTimeArray(),dtype=np.float)
+
+    if DataOut==True:
+        dataArrays = [heightArrays,chargeArrays,timeArrays]
+        np.save(OutputFileName,np.array(dataArrays, dtype=object), allow_pickle=True)
 
     #Plot summed channel histogram
     #dataArray = ExtractWfInfo(SumOutputs)
@@ -490,47 +511,3 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     # Return data in form NCh, MeanTR, [ChABin,ChAN,...]
     ChHistData = np.array(ChHistData)
     return NCh, MeanTR, ChHistData, Nevents 
-
-
-#### Following Specific Analysis Function should be moved to outside
-#### Leave this for an example, but please don't keep modifying and using this..
-def CosmicSr90Analysis():
-    #Function to determine Sr90 spectrum from datasets of cosmic rays and Sr90 + cosmic rays
-    
-    #Analyse cosmic ray data set - note this is not a purely min ionising cosmic data set
-    #FolderPath=r'/home/comet/work/pico/Oct15Cosmic//' 
-    #nch,CosmicTR,CosmicHistData = AnalyseFolder(FolderPath,True)
-    #CosmicBins = CosmicHistData[8]
-    #CosmicN = CosmicHistData[9]
-    
-    #Analyse strontium data set
-    FolderPath = r'/home/comet/work/data/Dec13_LargeScint_Cosmic_SmallTrigNearFibre_AUXTrig150mV_Vb42_MinDist'
-    nch,SrTR,SrHistData = AnalyseFolder(FolderPath,True)
-    SrBins = SrHistData[8]
-    SrN = SrHistData[9]
-    
-    #Subtract cosmic spectrum from strontium + cosmic spectrum
-    #nCosmicN = CosmicTR*CosmicN/np.sum(CosmicN)
-    #print("Mean cosmic trigger rate = ", CosmicTR)
-    #nSrN = SrTR*SrN/np.sum(SrN)
-    print("Mean cosmic + Sr90 trigger rate = ", SrTR)
-    #SrSpectrum = nSrN-nCosmicN    
-
-    #Plot histogram using bar plot
-    #plt.figure()
-    #plt.bar(SrBins[:-1],SrSpectrum,width=SrBins[1]-SrBins[0], color='blue') 
-    #plt.title("Reverse Strontium Spectrum")
-    #plt.xlabel(XString)
-    #plt.ylabel("Count")
-    
-    #Determine endpoint of spectrum?
-    return
-
-#################################################################################
-### Following commands are supposed to be done in your own analysis script.
-###  Please refer to myAna.py
-###FolderPath=r'/home/comet/work/data/Dec10_TrigScint_Sr90Col_SelfTrig50mV_Vb42_MinDist' 
-###PlotRMS(FolderPath,"Sr90")
-###PlotWaveformsFromAFile(FolderPath+"ScintTestOct15_Sr90_T9mV_99.npy")
-###CosmicSr90Analysis()
-###plt.show()

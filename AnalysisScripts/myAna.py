@@ -16,12 +16,15 @@ from loadSettings import load_analysis_conf
 folder=[]
 conffile="analysis_settings.yaml"
 
-def main():
+def main(output):
     nch = 0 ### Number of channel, should be constant?
     trR = 0 ### Trigger Rate
     bins=[]
     vals=[]
     waveform,analysisWindow,filtering,histogram=load_analysis_conf(conffile)
+    if (len(output)>0):
+        output=output+'.npy'
+        myFunc.SetDataOut(output)
     for f in folder:
         myFunc.SetPolarity(waveform["Polarity"])
         myFunc.SetTimeScale(waveform["TimeScale"])
@@ -83,7 +86,10 @@ if __name__ == "__main__":
     args=sys.argv
     #### name of the folder where you have the data to be analysed
     conffile=args[1]
+    output=''
     for i in range(len(args)-2):
+        if args[i+2]=='-o':
+            output=args[i+3]
+            break
         folder.append(args[i+2])
-    print(len(folder))
-    main()
+    main(output)

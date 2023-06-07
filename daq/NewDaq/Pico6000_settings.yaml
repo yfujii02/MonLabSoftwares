@@ -7,14 +7,14 @@
     preSamples: 2000 
     postSamples: 2000 
     Tbase: 2 
-    fName: 'Test_July2_6000_Counter2' 
-    fPath: '/home/comet/work/data/Counter2TestJuly2' 
-    Nevents: 10 
-    Nsubruns: 100 
+    fName: 'Test_LaptopDAQ_Jul3' 
+    fPath: '/home/yfujii/work/data/TestFolder/'#'/home/comet/work/data/Counter2TestJuly2' 
+    Nevents: 5
+    Nsubruns: 5 
 - ChannelSettings:
     Vrange: [4,4,4,4,6,6] 
     Rstatus: '1111' 
     Tstatus: '110000' 
     Tsimple: 0 
-    Tthresh: [-20,-20,0,0,0,0]
-    Polarity: [0,0,1,1,1,1] 
+    Tthresh: [250,-20,0,0,0,0]
+    Polarity: [1,0,1,1,1,1] 
