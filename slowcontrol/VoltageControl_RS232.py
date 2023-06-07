@@ -163,18 +163,18 @@ def ZeroVoltage(VoltageRead,instrument):
         instrument.write(voltagecommand)
         time.sleep(1)
         
-        if(CompFlag==0): VoltageRead = ReadVoltage() #Need to check whether comp error occured or not otherwise can't ramp down with checking read voltage
+        if(CompFlag==0): VoltageRead = ReadVoltage(instrument) #Need to check whether comp error occured or not otherwise can't ramp down with checking read voltage
     instrument.write("*RST") #Reset instrument settings on instrument now that voltage safely at 0 V
         
 
 ######################################Start Voltage Ramp###############################################
 #Check whether the 6487 is at 0 V before beginning ramp up
-VoltageRead = ReadVoltage()
+VoltageRead = ReadVoltage(instrument)
 print(VoltageRead)
 #Turn off voltage if VoltageRead is not 0 V at the beginning...
 if(VoltageRead>0.0): ZeroVoltage(VoltageRead)
-VoltageRead = ReadVoltage()
-SetRange(VoltageLevel)
+VoltageRead = ReadVoltage(instrument)
+SetRange(VoltageLevel,instrument)
 instrument.write("SOUR:VOLT:ILIM 2.5e-4") #Limit current?
 instrument.write("SOUR:VOLT:STAT ON") #Turn voltage source on
 EndFlag=0 #Check whether we are still operating or want to ramp down
@@ -202,7 +202,7 @@ while(EndFlag==0):
             instrument.write(voltagecommand)
             
             #Read whether it actually is this voltage or some other error has occured...
-            VoltageRead = ReadVoltage()
+            VoltageRead = ReadVoltage(instrument)
     
             #Displays what voltage read from instrument is after sending most recent voltage increment
             sys.stdout.write("\r Voltage: %.2f V" % VoltageRead)    
@@ -232,7 +232,7 @@ while(EndFlag==0):
              
             instrument.write(voltagecommand)
             
-            VoltageRead = ReadVoltage()    
+            VoltageRead = ReadVoltage(instrument)    
                 
             sys.stdout.write("\r Voltage: %.2f V" % CurrentVoltage)
             sys.stdout.flush()
@@ -287,7 +287,7 @@ while(EndFlag==0):
             
                     if(VoltageLevel>RangeVoltage):
                         print("New voltage above current voltage range...")
-                        SetRange(VoltageLevel)
+                        SetRange(VoltageLevel,instrument)
 
                 except ValueError:
                     print("Need to enter a valid voltage input!!!")
@@ -297,9 +297,9 @@ while(EndFlag==0):
         print("Ramping voltage down now!")
 
 ###################################Safely Ramp Down (if not 0 V)############################################
-VoltageRead = ReadVoltage()
+VoltageRead = ReadVoltage(instrument)
 if(CompFlag==1): VoltageRead=CurrentVoltage #if an error code is being read, cant use the readout to ramp down so use what it should have been to start ramping down   
-if(VoltageRead>0.0):ZeroVoltage(VoltageRead)
+if(VoltageRead>0.0):ZeroVoltage(VoltageRead,instrument)
 print("")
 print("Voltage ramp complete!")
 ##########################################################################################################

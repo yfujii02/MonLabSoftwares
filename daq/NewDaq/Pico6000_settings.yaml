@@ -4,17 +4,17 @@
    numDev: '1' 
 - DaqSettings:
     Mode: 1 
-    preSamples: 2000 
-    postSamples: 2000 
+    preSamples: 500 
+    postSamples: 1000 
     Tbase: 2 
-    fName: 'Test_LaptopDAQ_Jul3' 
-    fPath: '/home/yfujii/work/data/TestFolder/'#'/home/comet/work/data/Counter2TestJuly2' 
-    Nevents: 5
-    Nsubruns: 5 
+    fName: 'LED_2pDF_1p400V_1MHz_Jun6' 
+    fPath: '/home/smdek2/MonLabSoftwares/data/LEDTestFolder/' 
+    Nevents: 100
+    Nsubruns: 500 
 - ChannelSettings:
-    Vrange: [4,4,4,4,6,6] 
-    Rstatus: '1111' 
-    Tstatus: '110000' 
-    Tsimple: 0 
-    Tthresh: [250,-20,0,0,0,0]
+    Vrange: [4,4,4,2,6,6] 
+    Rstatus: '0001' 
+    Tstatus: '000001' 
+    Tsimple: 5 
+    Tthresh: [250,20,0,0,0,500]
     Polarity: [1,0,1,1,1,1] 
