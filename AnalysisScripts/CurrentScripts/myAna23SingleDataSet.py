@@ -26,7 +26,7 @@ def main():
     trR = 0 ### Trigger Rate
     bins=[]
     vals=[]
-    #print("HERE")
+    print("HERE")
     pData = []
     hData=[]
     Times = []

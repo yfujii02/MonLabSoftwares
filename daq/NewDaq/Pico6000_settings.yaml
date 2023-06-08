@@ -7,7 +7,7 @@
     preSamples: 500 
     postSamples: 1000 
     Tbase: 2 
-    fName: 'LED_2pDF_1p400V_1MHz_Jun6' 
+    fName: 'TestTriggerJun7' 
     fPath: '/home/smdek2/MonLabSoftwares/data/LEDTestFolder/' 
     Nevents: 100
     Nsubruns: 500 
@@ -16,5 +16,5 @@
     Rstatus: '0001' 
     Tstatus: '000001' 
     Tsimple: 5 
-    Tthresh: [250,20,0,0,0,500]
+    Tthresh: [250,20,0,0,0,5000]
     Polarity: [1,0,1,1,1,1] 
