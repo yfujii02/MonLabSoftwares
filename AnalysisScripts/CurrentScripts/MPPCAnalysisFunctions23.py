@@ -110,7 +110,8 @@ BaseF  = 0
 TrigF  = 0
 
 
-CutoffFreq = 400 ## FFT cut-off frequency in MHz
+UpperCutoffFreq = 400 ## FFT cut-off frequency in MHz (high)
+LowerCutoffFreq = 400 ##FFT cut-off frequency in MHz (low)
 MNumber    = 20  ## moving average filter number
 TrigCutOffLow = 50 ## trigger cut value low
 TrigCutOffHigh = 150 ## trigger cut value high
@@ -197,8 +198,10 @@ def FFTFilter(Data):
     fftV = fftpack.fft(Data)   
     samplefreq=fftpack.fftfreq(Samples, dt)
     Copy = fftV.copy()
-    Copy[np.abs(samplefreq)>CutoffFreq*1e6]=0
-    
+    Copy[np.abs(samplefreq)>UpperCutoffFreq*1e6]=0
+    if(LowerCutoffFreq!=UpperCutoffFreq):
+        Copy[np.abs(samplefreq)<LowerCutoffFreq*1e6]=0
+
     filteredsig=fftpack.ifft(Copy)
     Signal = filteredsig.real
 
@@ -224,11 +227,12 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
 
     #Plot all waveforms from a given file
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
-    AnalyseFlag=0
+    AnalyseFlag=1
     Waveforms,SumWaveforms = DecodeChannels(FName)  
     for ch in range(NCh): 
         if (plotch>0 and ch!=plotch): continue
         plt.figure()
+        plt.figure(figsize=(16,8),dpi=80)
         for i in range(len(Waveforms[ch])):
             #plt.figure()
             if (start>=0 and i<start): continue
@@ -236,8 +240,11 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
             
             if(AnalyseFlag==1):
                 Signal = Waveforms[ch][i]
+                #plt.plot(Signal,alpha=0.3,label='Raw')
                 if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
+                #plt.plot(Signal,alpha=0.9,label='FFT')
                 if(MovAvF==1): Signal = MovAvFilter(Signal)
+                plt.plot(Signal,alpha=0.1,label='MA')
                 if(BaseF ==1): Signal = BaselineFilter(ch,Signal)
                 Signal = Polarity[int(ch)]*Signal
                 ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
@@ -262,12 +269,15 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
           
             if(AnalyseFlag==1): 
                 PlotSignal = Signal
-                if(PeakVal<70): plt.plot(Signal, alpha=0.1)
+                #plt.plot(Signal, alpha=0.9)
             else: 
                 PlotSignal = Waveforms[ch][i]
                 plt.plot(PlotSignal,alpha=0.1)
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
+            plt.ylim([-50,50])
+            plt.xlim([3000,6000])
+            plt.legend()
             plt.title("Ch "+str(ch))
 
         plt.savefig("Channel_"+str(ch)+".png")
@@ -342,10 +352,12 @@ def EnableMovingAverageFilter(num):
     return
 
 ### Enabling FFT-based Filter
-def EnableFFTFilter(freq):
+def EnableFFTFilter(freqU,freqL):
     global FreqF
-    global CutoffFreq
-    CutoffFreq = freq
+    global UpperCutoffFreq
+    global LowerCutoffFreq
+    UpperCutoffFreq = freqU
+    LowerCutoffFreq = freqL
     FreqF = 1
     return
 

@@ -61,8 +61,8 @@ def RunAmpDAQ(SubRun,Settings,Stat,SigGen):
 
 
 
-def CloseDAQs(Settings,Stat): 
-    for i in range(len(Settings)): daq.close(Settings[i],Stat[2*i]) #close the daq
+def CloseDAQs(Settings): 
+    daq.close(Settings) #close the daq
     return
 
 if __name__ == "__main__":

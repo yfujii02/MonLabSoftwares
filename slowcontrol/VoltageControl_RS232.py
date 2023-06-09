@@ -172,7 +172,7 @@ def ZeroVoltage(VoltageRead,instrument):
 VoltageRead = ReadVoltage(instrument)
 print(VoltageRead)
 #Turn off voltage if VoltageRead is not 0 V at the beginning...
-if(VoltageRead>0.0): ZeroVoltage(VoltageRead)
+if(VoltageRead>0.0): ZeroVoltage(VoltageRead,instrument)
 VoltageRead = ReadVoltage(instrument)
 SetRange(VoltageLevel,instrument)
 instrument.write("SOUR:VOLT:ILIM 2.5e-4") #Limit current?

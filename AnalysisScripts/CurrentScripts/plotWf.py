@@ -34,8 +34,8 @@ def main(output,plotch,start,end):
         myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(np.array(analysisWindow["Start"]),np.array(analysisWindow["Stop"]),np.array(analysisWindow["Baseline"]))
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
-        myFunc.EnableFFTFilter(filtering["FFTCutoffFrequency"])
-        myFunc.EnableBaselineFilter()
+        myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
+       # myFunc.EnableBaselineFilter()
         #nch, trR, hData = myFunc.AnalyseFolder(f,False)
         #plt.show()
         FileString = folder+str(file)+ext

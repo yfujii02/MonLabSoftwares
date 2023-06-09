@@ -11,7 +11,6 @@ import numpy as np
 import MPPCAnalysisFunctions23 as myFunc
 import matplotlib
 import matplotlib.pyplot as plt
-#matplotlib.use('agg')
 from scipy.optimize import curve_fit
 from fitFunctions import Moyal,Gaus
 from loadSettings import load_analysis_conf
@@ -49,33 +48,12 @@ def main():
         myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(np.array(analysisWindow["Start"]),np.array(analysisWindow["Stop"]),np.array(analysisWindow["Baseline"]))
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
-        myFunc.EnableFFTFilter(filtering["FFTCutoffFrequency"])
-        myFunc.EnableBaselineFilter()
-        myFunc.EnableTriggerCut(1,0,195)
-        #Files = os.listdir(f)
-        
-        #Search = f 
-        #os.chdir(Search)
-        #Files = filter(os.path.isfile, os.listdir(Search))
-        #Files = [os.path.join(Search, fi) for fi in Files] # add path to each file
-        #Files.sort(key=lambda x: os.path.getmtime(x))
-        
-        #for file in Files:
-        #    print(file)
-        #    stat = os.path.getmtime(file)
-        #    Times.append(stat)
-
-        #    print("File time = ", stat)
+        myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
+        #myFunc.EnableBaselineFilter()
+        #myFunc.EnableTriggerCut(1,0,195)
         
         nch,trR,pData,hData, nEv = myFunc.AnalyseFolder(f,False)
         trR = np.array(trR)
-        #if(count!=0):
-        #    TriggerRs = np.concatenate((TriggerRs,trR))
-        #else: TriggerRs = trR
-        #count = count + 1
-        #print(TriggerRs)
-        #myFunc.PlotWaveformsFromAFile(f+"/data1.npy") 
-        #plt.savefig("Test1.png")
        
         if len(bins)==0:
            for i in range(int(len(hData)/2)):
@@ -85,50 +63,17 @@ def main():
             for i in range(int(len(hData)/2)):
                 vals[i] = vals[i]+hData[2*i+1]
 
-        #For Irradiation Tests with Main Counter (Ch A) and Trigger Counter (ChB)
-        MainC = pData[0]
-        TrigC = pData[1]
-        #print(len(pData[0]))
-        #print(len(pData[1]))
-        plt.figure()
-        #H, xedges, yedges = np.histogram2d(TrigC, MainC, bins=250)
-        #plt.pcolormesh(xedges, yedges, H, cmap='rainbow')
-        plt.hist2d(MainC,TrigC,bins = (100,40), norm='log')
-        plt.colorbar()
-        plt.ylabel("Trigger Peak (mV)")
-        plt.xlabel("Main Counter Peak (mV)")
-        plt.savefig(str(FileNaming)+"_"+str(count)+"_TrigVMain.png")
-        #os.system("mv ./"+str(FileNaming)+"TrigVMain* /mnt/c/Users/yfuj0004/work/MarchPMT_Tests/")
-        #plt.figure()
-        #Times = np.array(Times)
-        #plt.scatter(Times-Times[0],TriggerRs)
-        #plt.xlabel("Time (s)")
-        #plt.ylabel("Trigger Rate (Hz)")
-        #plt.show()
-        
+        fig, axes = plt.subplots(1,nch,squeeze=False)
+        for i in range(nch):
+            axes[0,i].bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
+            axes[0,i].set_xlabel("Peak Voltage (mV)")
+            axes[0,i].set_ylabel("Count")
+            axes[0,i].set_title("Channel "+str(i))
 
-        fig, axs = plt.subplots(1,nch)
-        #axs = axs.ravel()
-        for i in range(len(bins)):
-            #ax = fig.add_subplot(1, 2, 1 + i)
-            axs[i].bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
-            #axs[i].set_ylim(bottom=0.2)
-            #plt.yscale('log')
-            axs[i].set_xlabel("Peak Voltage (mV)")
-            axs[i].set_ylabel("Count")
-            axs[i].set_title("Channel "+str(i))
-
-            if histogram["GaussianFit"]==True and i==0:
+            if histogram["GaussianFit"][i]==True:
                 xdata = bins[i][:-1]
                 ydata = vals[i]
-                #ydata = myFunc.MovAvFilter(ydata)
                 p_guess = [np.max(ydata),xdata[np.argmax(ydata)],0.25*xdata[np.argmax(ydata)]]
-                # inc = (histogram["UpperRange"]-histogram["LowerRange"])/histogram["NumberOfBins"]
-                # thresh_val = int(250/inc)
-                # print("Fitting")
-                # print(inc)
-                # print(thresh_val)
-                # popt,pcov = curve_fit(Gaus,xdata=xdata[:thresh_val],ydata=ydata[:thresh_val],p0=p_guess,maxfev=5000)
                 popt,pcov = curve_fit(Gaus,xdata=xdata,ydata=ydata,sigma = np.sqrt(ydata), p0=p_guess,maxfev=5000)
                 perr = np.sqrt(np.diag(pcov))
                 print("Gaussian Fit Parameters")
@@ -150,8 +95,7 @@ def main():
                 print("Stat Uncertainty from Fitting")
                 perr = np.sqrt(np.diag(pcov))
                 print(perr)
-                axs[i].plot(xdata,Gaus(xdata,*popt),color='k',linestyle='--')
-                #axs[i].text(350,np.max(ydata)+i*20,str(r'$\mu$=%.2f $\pm$ %.2f' % (popt[1],perr[1])),fontsize=18)
+                axes[0,i].plot(xdata,Gaus(xdata,*popt),color='k',linestyle='--')
                 
                 diff = (ydata-Gaus(xdata,*popt))**2
                 sigma = np.sqrt(ydata)
@@ -183,7 +127,7 @@ def main():
             
                 #os.system("mv ./"+str(FileNaming)+"Gaussian* /mnt/c/Users/yfuj0004/work/")
                         
-            if histogram["LandauFit"]==True and i==0:
+            if histogram["LandauFit"][i]==True:
                 #plt.yscale('log')
                 ### Try Laudau fitting
                 #xdata = bins[i][:-1][bins[i][:-1]]
@@ -201,8 +145,8 @@ def main():
                 print(perr)
                 
                 ymax = np.max(Moyal(xdata,*popt))
-                axs[i].plot(xdata,Moyal(xdata,*popt),c='r',label='Landau')
-                axs[i].text(350,ymax+i*20,str(r'$\mu$=%.2f $\pm$ %.2f' % (popt[1],perr[1])),fontsize=18)
+                axes[0,i].plot(xdata,Moyal(xdata,*popt),c='r',label='Landau')
+                axes[0,i].text(350,ymax+i*20,str(r'$\mu$=%.2f $\pm$ %.2f' % (popt[1],perr[1])),fontsize=18)
                 #plt.savefig(str(FileNaming)+'Landau_'+str(i)+'.png')
                 
                 diff = (ydata-Moyal(xdata,*popt))**2
@@ -223,6 +167,8 @@ def main():
     print(uMeanPeakVals)
     print(Chis)
     plt.show()
+
+
 if __name__ == "__main__":
     args=sys.argv
     #### name of the folder where you have the data to be analysed
