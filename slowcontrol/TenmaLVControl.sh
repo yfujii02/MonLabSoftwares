@@ -42,11 +42,11 @@ function float_to_int(){
 
 for (( i=0; i<$nstep; i++ ))
 do
-    if (( $(echo "$up * ($transitionV-$currentV) >= 0" |bc -l) ))
+    if (( $(echo "$up * ($transitionV-($currentV)-($stepV1)) >= 0" |bc -l) ))
     then
-        tempV=$(echo "$currentV + $stepV1" | bc -l)
+        tempV=$(echo "$currentV + ($stepV1)" | bc -l)
     else
-        tempV=$(echo "$currentV + $stepV2" | bc -l)
+        tempV=$(echo "$currentV + ($stepV2)" | bc -l)
     fi
     currentV=$tempV
     inputV=$(float_to_int $(echo "1000*$currentV" | bc -l) )

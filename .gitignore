@@ -10,3 +10,5 @@ LEDTest*
 DarkCountData*
 *.zip
 *.pyc
+*.png
+*/*.png

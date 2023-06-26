@@ -26,8 +26,8 @@ def main():
     bins=[]
     vals=[]
     print("HERE")
-    pData = []
-    hData=[]
+    AllBins = []
+    AllVals = []
     Times = []
     count = 0
     MeanPeakVals=[]
@@ -37,42 +37,59 @@ def main():
     print(folder)
  
     for f in folder:
-        bins=[]
-        vals=[]
-        pData = []
-        hData=[]
-        
+        pbins=[]
+        pvals=[]
+        tbins=[]
+        tvals=[]
+        pData=[]
+        tData=[]
+
         myFunc.SetPolarity(waveform["Polarity"])
         myFunc.SetTimeScale(waveform["TimeScale"])
         myFunc.SetPeakThreshold(waveform["PeakThreshold"])
-        myFunc.SetBins(histogram["NumberOfBins"],histogram["LowerRange"],histogram["UpperRange"])
+        myFunc.SetBins(histogram["BinSize"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(np.array(analysisWindow["Start"]),np.array(analysisWindow["Stop"]),np.array(analysisWindow["Baseline"]))
+        #myFunc.EnableDiffFilter(filtering["DiffPoints"])
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
-        myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
+        #myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
         #myFunc.EnableBaselineFilter()
         #myFunc.EnableTriggerCut(1,0,195)
         
-        nch,trR,pData,hData, nEv = myFunc.AnalyseFolder(f,False)
+        nch,trR,pData,tData,nEv = myFunc.AnalyseFolder(f,False)
         trR = np.array(trR)
        
-        if len(bins)==0:
-           for i in range(int(len(hData)/2)):
-                bins.append(hData[2*i])
-                vals.append(hData[2*i+1])
-        else:
-            for i in range(int(len(hData)/2)):
-                vals[i] = vals[i]+hData[2*i+1]
-
-        fig, axes = plt.subplots(1,nch,squeeze=False)
+        #if len(pbins)==0:
+        for i in range(int(len(pData)/2)):
+            pbins.append(pData[2*i])
+            pvals.append(pData[2*i+1])
+        #else:
+        #    for i in range(int(len(pData)/2)):
+        #        pvals[i] = pvals[i]+pData[2*i+1]
+        
+        #if len(tbins)==0:
+        for i in range(int(len(tData)/2)):
+            tbins.append(tData[2*i])
+            tvals.append(tData[2*i+1])
+        #else:
+        #    for i in range(int(len(tData)/2)):
+        #        tvals[i] = tvals[i]+tData[2*i+1]
+        
+        AllBins.append(pbins)
+        AllVals.append(pvals)
+        #fig, axes = plt.subplots(1,nch)
+    
         for i in range(nch):
-            axes[0,i].bar(bins[i][:-1],vals[i],width=bins[i][1]-bins[i][0],color='blue')
-            axes[0,i].set_xlabel("Peak Voltage (mV)")
-            axes[0,i].set_ylabel("Count")
-            axes[0,i].set_title("Channel "+str(i))
+            #axes[i].bar(pbins[i][:-1],pvals[i],width=pbins[i][1]-pbins[i][0],color='blue')
+            #axes[i].set_xlabel("Peak Voltage (mV)")
+            #axes[i].set_ylabel("Count")
+            #axes[i].set_title("Channel "+str(i)) 
+            
+            #axes[i].set_ylim([0,30])
+            #use axes[0,i] for one subplot, no idea why?
 
             if histogram["GaussianFit"][i]==True:
-                xdata = bins[i][:-1]
-                ydata = vals[i]
+                xdata = pbins[i][:-1]
+                ydata = pvals[i]
                 p_guess = [np.max(ydata),xdata[np.argmax(ydata)],0.25*xdata[np.argmax(ydata)]]
                 popt,pcov = curve_fit(Gaus,xdata=xdata,ydata=ydata,sigma = np.sqrt(ydata), p0=p_guess,maxfev=5000)
                 perr = np.sqrt(np.diag(pcov))
@@ -95,7 +112,7 @@ def main():
                 print("Stat Uncertainty from Fitting")
                 perr = np.sqrt(np.diag(pcov))
                 print(perr)
-                axes[0,i].plot(xdata,Gaus(xdata,*popt),color='k',linestyle='--')
+                axes[i].plot(xdata,Gaus(xdata,*popt),color='k',linestyle='--')
                 
                 diff = (ydata-Gaus(xdata,*popt))**2
                 sigma = np.sqrt(ydata)
@@ -134,21 +151,19 @@ def main():
                 #ydata = vals[i][bins[i][:-1]]
                 #ydata = ydata[xdata<360]
                 #xdata = xdata[xdata<360]
-                xdata = bins[i][:-1]
-                ydata = vals[i]
+                xdata = pbins[i][:-1]
+                ydata = pvals[i]
                 pini  = [1000,175,1]
                 popt,pcov =  curve_fit(Moyal, xdata=xdata,ydata=ydata,p0=pini,maxfev=5000)
-                print("Updated Gaussian Fit Parameters")
+                print("Updated Landau Fit Parameters")
                 print(popt)
                 print("Stat Uncertainty from Fitting")
                 perr = np.sqrt(np.diag(pcov))
                 print(perr)
                 
                 ymax = np.max(Moyal(xdata,*popt))
-                axes[0,i].plot(xdata,Moyal(xdata,*popt),c='r',label='Landau')
-                axes[0,i].text(350,ymax+i*20,str(r'$\mu$=%.2f $\pm$ %.2f' % (popt[1],perr[1])),fontsize=18)
-                #plt.savefig(str(FileNaming)+'Landau_'+str(i)+'.png')
-                
+                axes[i].plot(xdata,Moyal(xdata,*popt),c='r',label='Landau, $\mu$'+str(i)+'= %.2f $\pm$ %.2f mV' % (popt[1],perr[1]))
+                axes[i].legend()
                 diff = (ydata-Moyal(xdata,*popt))**2
                 sigma = np.sqrt(ydata)
                 for i in range(len(sigma)):
@@ -159,13 +174,34 @@ def main():
                 NDF = len(ydata) - len(popt)
                 print("chisquare/NDF = {0:.2f} / {1:d} = {2:.2f}".format(test_statistic, NDF, test_statistic / float(NDF)))
                 #os.system("mv ./"+str(FileNaming)+"Landau* /mnt/c/Users/yfuj0004/work/")
-        plt.savefig(str(FileNaming)+'Gaussian_'+str(count)+'.png')
-        #plt.show()
+        #fig = plt.gcf()
+        #fig.set_size_inches(19.20,10.80)
+        #fig.tight_layout()
+        #fig.savefig(str(FileNaming)+'Fit_'+str(count)+'.png',bbox_inches='tight',dpi=200)
         count = count+1
-    print("Data")
-    print(MeanPeakVals)
-    print(uMeanPeakVals)
-    print(Chis)
+        
+        #fig, axes = plt.subplots(1,nch)
+    
+        #for i in range(nch):
+        #    axes[i].bar(tbins[i][:-1],tvals[i],width=tbins[i][1]-tbins[i][0],color='blue')
+        #    axes[i].set_xlabel("Edge Time (a.u.)")
+        #    axes[i].set_ylabel("Count")
+        #    axes[i].set_title("Channel "+str(i)) 
+    #plt.show()
+    
+    fig, axes = plt.subplots(1,2)
+    for i in range(len(AllBins)): 
+        for j in range(2):
+            axes[j].bar(AllBins[i][j][:-1],AllVals[i][j],width=AllBins[i][j][1]-AllBins[i][j][0],alpha=0.5,label = 'Dataset '+str(i))
+            axes[j].set_xlabel("Peak Voltage (mV)")
+            axes[j].set_ylabel("Count")
+            axes[j].set_title("Channel "+str(j)) 
+
+    #print("Data")
+    #print(MeanPeakVals)
+    #print(uMeanPeakVals)
+    #print(Chis)
+    plt.legend()
     plt.show()
 
 

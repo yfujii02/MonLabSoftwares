@@ -108,6 +108,7 @@ MovAvF = 0
 FreqF  = 0
 BaseF  = 0
 TrigF  = 0
+DiffF  = 0
 
 
 UpperCutoffFreq = 400 ## FFT cut-off frequency in MHz (high)
@@ -116,6 +117,7 @@ MNumber    = 20  ## moving average filter number
 TrigCutOffLow = 50 ## trigger cut value low
 TrigCutOffHigh = 150 ## trigger cut value high
 TrigCh     = 1   ## trigger channel
+DiffN = 1 ## diff filter n
 
 NBins = [100,100,100,100] #Histogram bins used 
 RangeUpper    = [100,100,100,100] #Upper limit of histograms 
@@ -135,7 +137,7 @@ PeakThreshold=[10,10,10,10,40]
 #### Basic functions
 
 #### Set the binnings and range for PlotHistogram
-def SetBins(nbins,lower,upper):
+def SetBins(BinSize,lower,upper):
     global NBins
     global RangeUpper
     global RangeLower
@@ -146,7 +148,10 @@ def SetBins(nbins,lower,upper):
     #if (upper<lower):
     #    print("ERROR! upper limit must be greater than lower limit")
     #    return -1
-    NBins = nbins
+
+    NBins = np.rint((np.array(upper)-np.array(lower))/np.array(BinSize)).astype(int)
+    print("BINS")
+    print(NBins)
     RangeUpper    = upper
     RangeLower    = lower
     return 0
@@ -207,6 +212,10 @@ def FFTFilter(Data):
 
     return Signal
 
+def DiffFilter(Data):
+    dY = Data[DiffN:]-Data[:-DiffN] 
+    return dY
+
 def BaselineFilter(Ch, Signal):
     base = np.mean(Signal[:BaseUpper[Ch]])
     return Signal-base
@@ -228,7 +237,7 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
     #Plot all waveforms from a given file
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
     AnalyseFlag=1
-    Waveforms,SumWaveforms = DecodeChannels(FName)  
+    Waveforms = DecodeChannels(FName)  
     for ch in range(NCh): 
         if (plotch>0 and ch!=plotch): continue
         plt.figure()
@@ -240,11 +249,16 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
             
             if(AnalyseFlag==1):
                 Signal = Waveforms[ch][i]
-                #plt.plot(Signal,alpha=0.3,label='Raw')
+                #plt.plot(Signal,alpha=0.1,color='b',label='Raw')
                 if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
-                #plt.plot(Signal,alpha=0.9,label='FFT')
+                #plt.plot(Signal,alpha=0.1,label='FFT')
+                #if(DiffF==1): Signal = DiffFilter(Signal)
+                #plt.plot(Signal,alpha = 0.5, label = 'Diff')
                 if(MovAvF==1): Signal = MovAvFilter(Signal)
-                plt.plot(Signal,alpha=0.1,label='MA')
+                #if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
+                #plt.plot(Signal,alpha=0.1,color='r',label='MA')
+                if(DiffF==1): Signal = DiffFilter(Signal)
+                plt.plot(Signal,alpha = 0.1,color='g', label = 'Diff')
                 if(BaseF ==1): Signal = BaselineFilter(ch,Signal)
                 Signal = Polarity[int(ch)]*Signal
                 ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
@@ -275,20 +289,13 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
                 plt.plot(PlotSignal,alpha=0.1)
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
-            plt.ylim([-50,50])
-            plt.xlim([3000,6000])
+            plt.ylim([-200,200])
+            #plt.xlim([0,1500])
             plt.legend()
             plt.title("Ch "+str(ch))
 
         plt.savefig("Channel_"+str(ch)+".png")
        
-   # if NCh>1: 
-   #     plt.figure()
-   #     plt.xlabel("Time (a.u.)")
-   #     plt.ylabel("Voltage (mV)")
-   #     plt.title("Summed Waveforms")
-       # for i in range(len(SumWaveforms)):
-            #plt.plot(SumWaveforms[i],alpha=0.1)
                 
 
 def FileList(FPath):
@@ -334,14 +341,7 @@ def DecodeChannels(FName):
         for j in range(NCh):
             ChDecoded[j].append(WfData[NCh*i+j,:])
     
-    ## Make a summed waveform
-    for i in range(NCh):
-        ChDecoded[i] = np.array(ChDecoded[i])
-    ChSum = np.copy(ChDecoded[0]) #Copy Ch A
-    for i in range(1,NCh):
-        ChSum+=ChDecoded[i] #Add Ch B,C,D
-    
-    return ChDecoded, ChSum
+    return ChDecoded
 
 ### Enabling Moving Average Filter
 def EnableMovingAverageFilter(num):
@@ -359,6 +359,13 @@ def EnableFFTFilter(freqU,freqL):
     UpperCutoffFreq = freqU
     LowerCutoffFreq = freqL
     FreqF = 1
+    return
+
+def EnableDiffFilter(n):
+    global DiffN
+    global DiffF
+    DiffN = n
+    DiffF = 1
     return
 
 ### Enabling Baseline subtraction
@@ -390,9 +397,8 @@ def TriggerCut(Ch,ChannelData,TrigData):
 
 ### Get the index where waveform exceeds the certain threshold
 ### Put the waveform, Wf[AnalysisWindow:PeakIdx+1] as Wf
-def GetEdgeTime(Wf,Ch,constantFraction=True):
-    if(Ch=='Sum'):threVal = PeakThreshold[4]
-    else: threVal = PeakThreshold[int(Ch)]
+def GetEdgeTime(Wf,Ch,constantFraction=False):
+    threVal = PeakThreshold[int(Ch)]
     if constantFraction==True:
         threVal = ConstantFraction*np.max(Wf)
     ret = np.where(Wf<threVal)
@@ -413,21 +419,14 @@ def ProcessAWaveform(Ch,Signal):
     #### Not so fure the following oder is the best or not 
     if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
     if(MovAvF==1): Signal = MovAvFilter(Signal)
-    if(BaseF ==1): 
-            if(Ch!='Sum'): Signal = BaselineFilter(Ch,Signal)
-            else: Signal = BaselineFilter(0,Signal)
-    if(Ch=='Sum'): Signal = Polarity[4]*Signal 
-    else: Signal = Polarity[int(Ch)]*Signal
+    if(DiffF == 1): Signal = DiffFilter(Signal)
+    if(BaseF ==1): Signal = BaselineFilter(0,Signal) 
+    Signal = Polarity[int(Ch)]*Signal
     ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
     
-    if(Ch=='Sum'):
-        BU = BaseUpper[0]
-        SU = SigUpper[0]
-        SL = SigLower[0]
-    else:
-        BU = BaseUpper[Ch]
-        SU = SigUpper[Ch]
-        SL = SigLower[Ch]
+    BU = BaseUpper[Ch]
+    SU = SigUpper[Ch]
+    SL = SigLower[Ch]
 
     #Calculate RMS of baseline area before signal window
     RMS = np.std(Signal[:BU])
@@ -435,16 +434,12 @@ def ProcessAWaveform(Ch,Signal):
     #Extract output analysis parameter from waveform
     PeakVal   = np.max(Signal[SL:SU])
     PeakIndex = np.argmax(Signal[SL:SU])+SL
-    if(Ch=='Sum'):
-        if(PeakVal>PeakThreshold[4]):
+    
+    if(PeakVal>PeakThreshold[int(Ch)]):
             EdgeTime = GetEdgeTime(Signal[SL:PeakIndex+1],Ch)+SL*TimeScale
-        else:
-            EdgeTime = -1
     else:
-        if(PeakVal>PeakThreshold[int(Ch)]):
-            EdgeTime = GetEdgeTime(Signal[SL:PeakIndex+1],Ch)+SL*TimeScale
-        else:
             EdgeTime = -1
+    #EdgeTime = -1
 
     ChargeVal = simps(Signal[SL:SU],ChT[SL:SU]) # scipy integration function
 
@@ -483,7 +478,7 @@ def PlotHistogram(Data,RL,RU,NB,String,strData,PlotFig=False): #pdist,threshold,
 def GetNumEvents():
     return Nevents
 
-def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
+def AnalyseSingleFile(FName,ChOutputs):
     global FileLoaded
     global Nevents
     #Takes a file path and analyses all waveforms in the file
@@ -495,7 +490,7 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
     #This is returned for each channel separately
     if (FileLoaded==False): LoadFile(FName)
     
-    Waveforms,SumWaveforms = DecodeChannels(FName)
+    Waveforms = DecodeChannels(FName)
     
     NWaveforms = len(Waveforms[0]) #All channels have same number of waveforms
     TRate = (HeaderInfo[0][4]/(HeaderInfo[0][3]-HeaderInfo[0][2]))
@@ -512,8 +507,7 @@ def AnalyseSingleFile(FName,ChOutputs,ChSumOut):
         if (RemoveNoisyEvent==True and NoisyEvent==True): continue
         for ch in range(NCh):
             ChOutputs[ch].append(wfInfo[ch])
-        ChSumOut.append(ProcessAWaveform('Sum',SumWaveforms[i]))
-    #print(ChSumOut)
+    
     ## Prepare to read the next file
     FileLoaded = False
     return TRate
@@ -530,102 +524,48 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     TriggerRates = []
    
     FileOutputs=[[],[],[],[]]  # 4channels
-    SumOutputs=[]
-    ChPeakData = []
+    
+
     for i in range(start,end):
         print("Analysing file:",FList[i][len(FPath)-1:])
-        TRate = AnalyseSingleFile(FList[i],FileOutputs,SumOutputs)
+        TRate = AnalyseSingleFile(FList[i],FileOutputs)
         TriggerRates.append(TRate)
         print("Trigger rate (Hz) = ",TRate)
 
     TriggerRates=np.array(TriggerRates)   
     MeanTR = np.mean(TriggerRates)
     
-    ChHistData=[]
-    if(TrigF==1):
-        TrigArray = np.array(ExtractWfInfo(FileOutputs[TrigCh]).getHeightArray(),dtype=np.float)
-        for ch in range(NCh): 
-            if(ch==TrigCh):
-                print("Trigger Ch")
-                print(TrigArray) 
-                heightArray = TriggerCut(TrigCh, TrigArray, TrigArray)
-                print(heightArray)
-            else:
-                dataArray = ExtractWfInfo(FileOutputs[ch])
-                #print(dataArray)
-                heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-                print("Channel ",ch)
-                print(heightArray)
-                heightArray = TriggerCut(ch, heightArray, TrigArray)
-                print(heightArray)
-            
-            ChPeakData.append(heightArray)
-            #print(heightArray)
-            
+    ChPeakData=[]
+    ChTData=[]
+    heightArray=[]
+    timeArray=[]
+    nBins = []
+    for ch in range(NCh): 
+        dataArray = ExtractWfInfo(FileOutputs[ch])
+        print("Channel ", ch)
+       
+        heightArrayTmp = np.array(dataArray.getHeightArray(),dtype=np.float)
+        heightArray.append(heightArrayTmp)
 
-            nBins, vals = PlotHistogram(heightArray,RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)),
-                    "Peak height [mV]")
-            ChHistData.append(nBins)
-            ChHistData.append(vals)
-            print(len(nBins))
-            print(len(vals))
-        #Integrated Charge
-        # chargeArray = np.array(dataArray.getChargeArray(),dtype=float)
-        # nBins, vals = PlotHistogram(chargeArray,RangeLower,RangeUpper*TimeScale*(SigUpper-SigLower)/4.0,NBins,str(dataArray.getChannel(0)),
-        #         "Charge [mV*ns]")
-        # ChHistData.append(nBins)
-        # ChHistData.append(vals)
-
-            #Added Feb 27 2022 - plotting time of peak in array (Ch B will have garbage so ignore)
-            #timearray = np.array(dataArray.getPeakIndexArray(),dtype=float) #
-        # timearray = np.array(dataArray.getEdgeTimeArray(),dtype=float) #
-            #nBinsT, valsT = PlotHistogram(timearray,TimeScale*TimeLower,TimeScale*TimeUpper,TimeBins,str(dataArray.getChannel(0)),
-                    #"Peak Time (ns)")
-            #        "Edge Time (ns)")
-            #ChHistData.append(nBinsT)
-            #ChHistData.append(valsT)        
-            #TimePeak = nBinsT[np.argmax(valsT)]
-            #print("EdgeTime = %s ns" %(TimePeak))
-  
-    else:
-        for ch in range(NCh): 
-            dataArray = ExtractWfInfo(FileOutputs[ch])
-        
-            #print(dataArray)
-            heightArray = np.array(dataArray.getHeightArray(),dtype=np.float)
-            
-            ChPeakData.append(heightArray)
-            #print(heightArray)
-            
-
-            nBins, vals = PlotHistogram(heightArray,RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)),
-                    "Peak height [mV]")
-            ChHistData.append(nBins)
-            ChHistData.append(vals)
-            print(len(nBins))
-            print(len(vals))
-        #Integrated Charge
-        # chargeArray = np.array(dataArray.getChargeArray(),dtype=float)
-        # nBins, vals = PlotHistogram(chargeArray,RangeLower,RangeUpper*TimeScale*(SigUpper-SigLower)/4.0,NBins,str(dataArray.getChannel(0)),
-        #         "Charge [mV*ns]")
-        # ChHistData.append(nBins)
-        # ChHistData.append(vals)
-
-            #Added Feb 27 2022 - plotting time of peak in array (Ch B will have garbage so ignore)
-            #timearray = np.array(dataArray.getPeakIndexArray(),dtype=float) #
-        # timearray = np.array(dataArray.getEdgeTimeArray(),dtype=float) #
-            #nBinsT, valsT = PlotHistogram(timearray,TimeScale*TimeLower,TimeScale*TimeUpper,TimeBins,str(dataArray.getChannel(0)),
-                    #"Peak Time (ns)")
-            #        "Edge Time (ns)")
-            #ChHistData.append(nBinsT)
-            #ChHistData.append(valsT)        
-            #TimePeak = nBinsT[np.argmax(valsT)]
-            #print("EdgeTime = %s ns" %(TimePeak)) 
-   
-    ChHistData = np.array(ChHistData)
-    # Incomplete:
-    # if(TrigF==1):
-    #    for ch in range(NCh):
-    #        if(ch!=TrigCh): TriggerCut(ChHistData)    
+        timeArrayTmp = np.array(dataArray.getEdgeTimeArray(), dtype=np.float)
+        timeArray.append(timeArrayTmp)
     
-    return NCh, TriggerRates, ChPeakData, ChHistData, Nevents 
+    for ch in range(NCh): 
+        #nBins, vals = PlotHistogram(heightArray[ch],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
+          
+        #Coincidence Plotting
+        t_thresh = 10
+        nBins, vals = PlotHistogram(heightArray[ch][((heightArray[2]>-70)|(heightArray[3]>-70))&(((timeArray[3]-timeArray[0])<t_thresh)|((timeArray[3]-timeArray[1])<t_thresh)|((timeArray[2]-timeArray[0])<t_thresh)|((timeArray[2]-timeArray[1])<t_thresh))],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
+        
+        ChPeakData.append(nBins)
+        ChPeakData.append(vals)
+
+
+        nTBins, Tvals = PlotHistogram(timeArray[ch], 3000, 4000, 1000,  str(dataArray.getChannel(0)), "Edge Time [a.u.]")
+    
+        ChTData.append(nTBins)
+        ChTData.append(Tvals)
+
+    ChPeakData = np.array(ChPeakData)
+    ChTData = np.array(ChTData)
+    return NCh, TriggerRates, ChPeakData, ChTData, Nevents 

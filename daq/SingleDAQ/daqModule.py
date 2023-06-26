@@ -32,6 +32,7 @@ RangeValues = [0,0,50,100,200,500,1000,2000,5000,10000]
 #Channel Init
 EnableCh = 1
 OffsetCh = 0
+offset = [-0.4,-0.4,0,0]
 BandwidthCh  = 0
 #Set Simple Trigger
 EnableTrig = 1
@@ -126,6 +127,8 @@ def set_params(DevInfo,DAQInfo,ChInfo):
     SimpleTrigCh = ChInfo["Tsimple"] 
     global chRange 
     chRange = ChInfo["Vrange"]
+    global offset
+    offset = ChInfo["Offset"]
     global TimeBase
     TimeBase = DAQInfo["Tbase"]
     global preSamps
@@ -152,16 +155,20 @@ def open_scope():
         connected = True
         print("Opening Pico_"+Device+" #"+DeviceNumber) #prints serial number and handle
 
-def channel_init(channel,coupling):
+def channel_init(channel,coupling,offset):
     global status
     global chandle
     print("Init Ch ",channel," with coupling ",coupling)
     SCh = StatChan[channel]+Device
     RCh = chRange[channel]
     status[SCh] = pm.SetChannel(chandle,channel,EnableCh,coupling,RCh,
-                                OffsetCh,BandwidthCh,Device)
+                                offset,BandwidthCh,Device)
     assert_pico_ok(status[SCh])
     return True
+
+def SetOffset(values):
+    global offset
+    offset = values
 
 def SetTimeBase():
     global status
@@ -449,7 +456,7 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
         open_scope()
         for ch in range(4):
             if readCh_en[ch]==True or trigCh_en[ch]==True: 
-                channel_init(ch,couplings[ch])
+                channel_init(ch,couplings[ch],offset[ch])
         if DAQMode == 1:
             SetSimpleTrigger()
         elif DAQMode == 2:
