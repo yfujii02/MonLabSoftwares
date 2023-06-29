@@ -250,18 +250,18 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
             if(AnalyseFlag==1):
                 Signal = Waveforms[ch][i]
                 #plt.plot(Signal,alpha=0.1,color='b',label='Raw')
-                if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
+                #if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
                 #plt.plot(Signal,alpha=0.1,label='FFT')
                 #if(DiffF==1): Signal = DiffFilter(Signal)
                 #plt.plot(Signal,alpha = 0.5, label = 'Diff')
                 if(MovAvF==1): Signal = MovAvFilter(Signal)
                 #if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
                 #plt.plot(Signal,alpha=0.1,color='r',label='MA')
-                if(DiffF==1): Signal = DiffFilter(Signal)
+                #if(DiffF==1): Signal = DiffFilter(Signal)
                 plt.plot(Signal,alpha = 0.1,color='g', label = 'Diff')
-                if(BaseF ==1): Signal = BaselineFilter(ch,Signal)
-                Signal = Polarity[int(ch)]*Signal
-                ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
+                #if(BaseF ==1): Signal = BaselineFilter(ch,Signal)
+                #Signal = Polarity[int(ch)]*Signal
+                #ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
                 BU = BaseUpper[ch]
                 SU = SigUpper[ch]
                 SL = SigLower[ch]
@@ -289,8 +289,8 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
                 plt.plot(PlotSignal,alpha=0.1)
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
-            plt.ylim([-200,200])
-            #plt.xlim([0,1500])
+            plt.ylim([-150,-50])
+            plt.xlim([150,250])
             plt.legend()
             plt.title("Ch "+str(ch))
 
@@ -551,11 +551,11 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
         timeArray.append(timeArrayTmp)
     
     for ch in range(NCh): 
-        #nBins, vals = PlotHistogram(heightArray[ch],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
+        nBins, vals = PlotHistogram(heightArray[ch],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
           
         #Coincidence Plotting
         t_thresh = 10
-        nBins, vals = PlotHistogram(heightArray[ch][((heightArray[2]>-70)|(heightArray[3]>-70))&(((timeArray[3]-timeArray[0])<t_thresh)|((timeArray[3]-timeArray[1])<t_thresh)|((timeArray[2]-timeArray[0])<t_thresh)|((timeArray[2]-timeArray[1])<t_thresh))],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
+        #nBins, vals = PlotHistogram(heightArray[ch][((heightArray[2]>-70)|(heightArray[3]>-70))&(((timeArray[3]-timeArray[0])<t_thresh)|((timeArray[3]-timeArray[1])<t_thresh)|((timeArray[2]-timeArray[0])<t_thresh)|((timeArray[2]-timeArray[1])<t_thresh))],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
         
         ChPeakData.append(nBins)
         ChPeakData.append(vals)

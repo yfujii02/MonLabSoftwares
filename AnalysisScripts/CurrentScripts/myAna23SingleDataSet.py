@@ -76,13 +76,13 @@ def main():
         
         AllBins.append(pbins)
         AllVals.append(pvals)
-        #fig, axes = plt.subplots(1,nch)
+        fig, axes = plt.subplots(1,2)
     
         for i in range(nch):
-            #axes[i].bar(pbins[i][:-1],pvals[i],width=pbins[i][1]-pbins[i][0],color='blue')
-            #axes[i].set_xlabel("Peak Voltage (mV)")
-            #axes[i].set_ylabel("Count")
-            #axes[i].set_title("Channel "+str(i)) 
+            axes[i].bar(pbins[i][:-1],pvals[i],width=pbins[i][1]-pbins[i][0],color='blue')
+            axes[i].set_xlabel("Peak Voltage (mV)")
+            axes[i].set_ylabel("Count")
+            axes[i].set_title("Channel "+str(i)) 
             
             #axes[i].set_ylim([0,30])
             #use axes[0,i] for one subplot, no idea why?
@@ -174,10 +174,10 @@ def main():
                 NDF = len(ydata) - len(popt)
                 print("chisquare/NDF = {0:.2f} / {1:d} = {2:.2f}".format(test_statistic, NDF, test_statistic / float(NDF)))
                 #os.system("mv ./"+str(FileNaming)+"Landau* /mnt/c/Users/yfuj0004/work/")
-        #fig = plt.gcf()
-        #fig.set_size_inches(19.20,10.80)
-        #fig.tight_layout()
-        #fig.savefig(str(FileNaming)+'Fit_'+str(count)+'.png',bbox_inches='tight',dpi=200)
+        fig = plt.gcf()
+        fig.set_size_inches(19.20,10.80)
+        fig.tight_layout()
+        fig.savefig(str(FileNaming)+'Fit_'+str(count)+'.png',bbox_inches='tight',dpi=200)
         count = count+1
         
         #fig, axes = plt.subplots(1,nch)
@@ -189,13 +189,13 @@ def main():
         #    axes[i].set_title("Channel "+str(i)) 
     #plt.show()
     
-    fig, axes = plt.subplots(1,2)
-    for i in range(len(AllBins)): 
-        for j in range(2):
-            axes[j].bar(AllBins[i][j][:-1],AllVals[i][j],width=AllBins[i][j][1]-AllBins[i][j][0],alpha=0.5,label = 'Dataset '+str(i))
-            axes[j].set_xlabel("Peak Voltage (mV)")
-            axes[j].set_ylabel("Count")
-            axes[j].set_title("Channel "+str(j)) 
+    #fig, axes = plt.subplots(1,2)
+    #for i in range(len(AllBins)): 
+    #    for j in range(2):
+    #        axes[j].bar(AllBins[i][j][:-1],AllVals[i][j],width=AllBins[i][j][1]-AllBins[i][j][0],alpha=0.5,label = 'Dataset '+str(i))
+    #        axes[j].set_xlabel("Peak Voltage (mV)")
+    #        axes[j].set_ylabel("Count")
+    #        axes[j].set_title("Channel "+str(j)) 
 
     #print("Data")
     #print(MeanPeakVals)
