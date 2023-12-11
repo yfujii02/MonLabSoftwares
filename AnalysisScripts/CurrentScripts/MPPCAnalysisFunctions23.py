@@ -289,8 +289,8 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
                 plt.plot(PlotSignal,alpha=0.1)
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
-            plt.ylim([-150,-50])
-            plt.xlim([150,250])
+            plt.ylim([-500,500])
+            #plt.xlim([0,10])
             plt.legend()
             plt.title("Ch "+str(ch))
 

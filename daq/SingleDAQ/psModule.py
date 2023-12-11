@@ -20,7 +20,7 @@ def SetCouplings(device):
        return couplings
     
     elif device=="6000":
-       couplings = [ps6.PS6000_COUPLING["PS6000_DC_1M"],ps6.PS6000_COUPLING["PS6000_DC_1M"],
+       couplings = [ps6.PS6000_COUPLING["PS6000_DC_50R"],ps6.PS6000_COUPLING["PS6000_DC_50R"],
                     ps6.PS6000_COUPLING["PS6000_DC_50R"],ps6.PS6000_COUPLING["PS6000_DC_50R"]]
        return couplings
     else:

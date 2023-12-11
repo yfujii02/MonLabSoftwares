@@ -52,7 +52,7 @@ def main():
         #myFunc.EnableDiffFilter(filtering["DiffPoints"])
         myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
         #myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
-        #myFunc.EnableBaselineFilter()
+        myFunc.EnableBaselineFilter()
         #myFunc.EnableTriggerCut(1,0,195)
         
         nch,trR,pData,tData,nEv = myFunc.AnalyseFolder(f,False)
@@ -78,7 +78,7 @@ def main():
         AllVals.append(pvals)
         fig, axes = plt.subplots(1,2)
     
-        for i in range(nch):
+        for i in range(1):
             axes[i].bar(pbins[i][:-1],pvals[i],width=pbins[i][1]-pbins[i][0],color='blue')
             axes[i].set_xlabel("Peak Voltage (mV)")
             axes[i].set_ylabel("Count")
@@ -90,7 +90,7 @@ def main():
             if histogram["GaussianFit"][i]==True:
                 xdata = pbins[i][:-1]
                 ydata = pvals[i]
-                p_guess = [np.max(ydata),xdata[np.argmax(ydata)],0.25*xdata[np.argmax(ydata)]]
+                p_guess = [np.max(ydata),xdata[np.argmax(ydata)],3]#0.25*xdata[np.argmax(ydata)]]
                 popt,pcov = curve_fit(Gaus,xdata=xdata,ydata=ydata,sigma = np.sqrt(ydata), p0=p_guess,maxfev=5000)
                 perr = np.sqrt(np.diag(pcov))
                 print("Gaussian Fit Parameters")
@@ -116,8 +116,8 @@ def main():
                 
                 diff = (ydata-Gaus(xdata,*popt))**2
                 sigma = np.sqrt(ydata)
-                for i in range(len(sigma)):
-                    if(sigma[i]<=1): sigma[i]=1
+                for l in range(len(sigma)):
+                    if(sigma[l]<=1): sigma[l]=1
                 
                 test_statistic = np.sum(diff/sigma**2)
                 NDF = len(ydata) - len(popt)

@@ -34,7 +34,7 @@ def main(output,plotch,start,end):
         myFunc.SetBins(histogram["BinSize"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(np.array(analysisWindow["Start"]),np.array(analysisWindow["Stop"]),np.array(analysisWindow["Baseline"]))
         #myFunc.EnableDiffFilter(filtering["DiffPoints"])
-        myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
+        #myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
         #myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
        # myFunc.EnableBaselineFilter()
         #nch, trR, hData = myFunc.AnalyseFolder(f,False)
