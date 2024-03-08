@@ -1,8 +1,6 @@
 import ctypes
 from picosdk.ps3000a import ps3000a as ps3
 from picosdk.ps6000 import ps6000 as ps6
-from picosdk.functions import adc2mV, mV2adc,assert_pico_ok
-
 
 def OpenUnit(chandle, device):
     if device=="3000":
@@ -20,8 +18,8 @@ def SetCouplings(device):
        return couplings
     
     elif device=="6000":
-       couplings = [ps6.PS6000_COUPLING["PS6000_DC_50R"],ps6.PS6000_COUPLING["PS6000_DC_50R"],
-                    ps6.PS6000_COUPLING["PS6000_DC_50R"],ps6.PS6000_COUPLING["PS6000_DC_50R"]]
+       couplings = [ps6.PS6000_COUPLING["PS6000_DC_1M"],ps6.PS6000_COUPLING["PS6000_DC_1M"],
+                    ps6.PS6000_COUPLING["PS6000_DC_1M"],ps6.PS6000_COUPLING["PS6000_DC_1M"]]
        return couplings
     else:
        print("ERROR: Invalid Device (SetCouplings)")

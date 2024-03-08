@@ -8,7 +8,7 @@
 import sys
 import os
 import numpy as np
-import MPPCAnalysisFunctions23 as myFunc
+import MPPCAnalysisFunctions as myFunc
 import matplotlib
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit

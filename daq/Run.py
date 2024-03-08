@@ -1,9 +1,7 @@
 import time
-from multiprocessing import Process
 import sys
 import runModule as run
 import daqModule as daq
-import threading
 
 devFile1 = "Example_settings.yaml"
 devFile2 = "Example_settings.yaml"

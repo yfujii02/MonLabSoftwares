@@ -1,6 +1,7 @@
 data/
 picosdk-c-examples/
 */__pycache__
+*/*/__pycache__
 *.swp
 */.ipynb_checkpoints/
 ana/*.pdf

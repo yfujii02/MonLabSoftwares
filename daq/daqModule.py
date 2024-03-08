@@ -25,14 +25,12 @@ StatChan = ['SetChA_','SetChB_','SetChC_','SetChD_','EXT_','AUX_'] #strings for 
 TrigPolarity = 1 #initiate variable for simple trigger polarity
 daqStart = 0 #daq start time for each sub run
 daqEnd = 0 #daq end time variable for each sub run
-BaseWindow = 100 #starting window to extract a mean baseline
 RangeValues = [0,0,50,100,200,500,1000,2000,5000,10000]
 
 #Other Settings for pico functions (generally not changed)
 #Channel Init
 EnableCh = 1
 OffsetCh = 0
-offset = [-0.4,-0.4,0,0]
 BandwidthCh  = 0
 #Set Simple Trigger
 EnableTrig = 1
@@ -61,7 +59,7 @@ StartIndexGV=0
 SegIndGV=0
 
 #Initialise device and daq parameters
-Device = "3000" #picoscope type - used to call correct pico library functions in psModule.py
+Device = "6000" #picoscope type - used to call correct pico library functions in psModule.py
 DeviceNumber='1' #device number (for future case if have same types of pico)
 Nevents = 100 #number of events to be recorded in a sub run
 TrigThresh = [0,0,0,0,0,0] #trigger threshold used (if more than one ch is acting as trigger)
@@ -102,8 +100,6 @@ def set_siggen(SignalInfo):
     WType = SignalInfo["WaveType"]
 
 def set_params(DevInfo,DAQInfo,ChInfo):
-    global status
-    global chandle
     #Read in and define all of the device + daq parameters
     global Device 
     Device = DevInfo["typeDev"]
@@ -127,8 +123,6 @@ def set_params(DevInfo,DAQInfo,ChInfo):
     SimpleTrigCh = ChInfo["Tsimple"] 
     global chRange 
     chRange = ChInfo["Vrange"]
-    global offset
-    offset = ChInfo["Offset"]
     global TimeBase
     TimeBase = DAQInfo["Tbase"]
     global preSamps
@@ -141,8 +135,6 @@ def set_params(DevInfo,DAQInfo,ChInfo):
     cmaxSamples=ctypes.c_int32(maxSamples)
     global Polarities 
     Polarities = ChInfo["Polarity"]
-    global BaseWindow
-    BaseWindow = int(preSamps/5)
     
 def open_scope():
     global status
@@ -150,25 +142,21 @@ def open_scope():
     global connected
     StatOpen = "OpenUnit_"+Device
     if(connected==False):
+        print("Opening Pico_"+Device+" #"+DeviceNumber) #prints serial number and handle
         status[StatOpen] = pm.OpenUnit(chandle,Device)
         assert_pico_ok(status[StatOpen])
         connected = True
-        print("Opening Pico_"+Device+" #"+DeviceNumber) #prints serial number and handle
 
-def channel_init(channel,coupling,offset):
+def channel_init(channel,coupling):
     global status
     global chandle
     print("Init Ch ",channel," with coupling ",coupling)
     SCh = StatChan[channel]+Device
     RCh = chRange[channel]
     status[SCh] = pm.SetChannel(chandle,channel,EnableCh,coupling,RCh,
-                                offset,BandwidthCh,Device)
+                                OffsetCh,BandwidthCh,Device)
     assert_pico_ok(status[SCh])
     return True
-
-def SetOffset(values):
-    global offset
-    offset = values
 
 def SetTimeBase():
     global status
@@ -193,9 +181,6 @@ def SetSimpleTrigger():
     STrig = "Trigger_"+Device+"_Ch_"+str(SimpleTrigCh)
     status[STrig] = pm.SetSimpleTrigger(chandle,EnableTrig,SimpleTrigCh,threshADC,direction,DelayTrig,AutoTrig,Device)
     assert_pico_ok(status[STrig])
-
-
-
 
 def SetAdvancedTrigger():
     global status
@@ -290,7 +275,6 @@ def GetSingleEvent():
     
     Overflow = ctypes.c_int16() #create overflow location for data
     SMem = "MemSegments_"+Device
-   
     status[SMem] = pm.MemorySegments(chandle,nSegMS,ctypes.byref(cmaxSamples),Device)
     assert_pico_ok(status[SMem])
     
@@ -347,106 +331,15 @@ def GetSingleEvent():
      
     return data
 
-
-def GetSigShot():
-    #Only use with pico6000 - to be integrated with psModule.py later
-    global chandle
-    global status
-    global cmaxSamples
-
-    #Set Sig Gen Parameters
-    #For square wave, WaveType = SQUARE
-    wavetype = "PS6000_"+WType
-    #print("Wavetype = ",wavetype)
-    
-    #Other parameters we don't care about for now
-    sweepType = ctypes.c_int32(0)
-    Sweeps = 0
-    SDwell = 0 
-    SInc = 0
-    opType = 0
- 
-    #Want to trigger on aux input - threshold must be same as daq set threshold
-    SigTriggerType = "PS6000_SIGGEN_RISING"
-    SigTriggerSource  = "PS6000_SIGGEN_AUX_IN"
-    extInThreshold = mV2adc(TrigPolarity*TrigThresh[SimpleTrigCh],chRange[SimpleTrigCh],maxADC)
-    
-    #Set up data collection  
-    Overflow = ctypes.c_int16() #create overflow location for data
-    SMem = "MemSegments_"+Device
-   
-    status[SMem] = pm.MemorySegments(chandle,nSegMS,ctypes.byref(cmaxSamples),Device)
-    assert_pico_ok(status[SMem])
-    
-    #Set number of captures
-    SCap = "SetNoOfCaptures_"+Device
-    status[SCap] = pm.SetCaptures(chandle,nCapNC,Device)
-    assert_pico_ok(status[SCap]) 
-   
-    #Start block capture
-    SBlock = "RunBlock_"+Device
-    status[SBlock] = pm.SetRunBlock(chandle,preSamps,postSamps,TimeBase,OversampleRB,TimeIndisposedRB,
-                                    SegIndRB,LPReadyRB,PParamRB,Device)
-    assert_pico_ok(status[SBlock])
-    
-    #Checks data colletion to finish the capture
-    ready = ctypes.c_int16(0)
-    check = ctypes.c_int16(0)
-    SReady = "IsReady_"+Device
-    SSigGen = "SetSigGenBuiltIn_"+Device    
-
-    #Produce shot - same trigger as daq using AUX input
-    status[SSigGen]=pm.SetSigGenBuiltIn(chandle,SigOffset,PkPk,wavetype,SigFreq,SigFreq,SInc,SDwell,sweepType,opType,
-                                        Shots,Sweeps,SigTriggerType,SigTriggerSource,extInThreshold)
-
-    # Wait until ready 
-    while ready.value == check.value: 
-        status[SReady] = pm.IsReady(chandle,ctypes.byref(ready),Device)
-    
-    # Create buffers ready for assigning pointers for data collection
-    bufferMax=[[],[],[],[]]
-    bufferMin=[[],[],[],[]]
-    status_str=["SetDataBuffersA_"+Device,"SetDataBuffersB_"+Device,
-                "SetDataBuffersC_"+Device,"SetDataBuffersD_"+Device]
-    
-    for ch in range(4):
-        if readCh_en[ch]==True:
-            bufferMax[ch] = (ctypes.c_int16 * maxSamples)()
-            bufferMin[ch] = (ctypes.c_int16 * maxSamples)() #can be used for downsampling
-           
-            # Setting the data buffer location for data collection from channel [ch]
-            status[status_str[ch]] = pm.SetDataBuffers(chandle, ch, ctypes.byref(bufferMax[ch]),
-                                                       ctypes.byref(bufferMin[ch]), maxSamples,SegIndDB,
-                                                       DownRatioModeDB,Device)
-            assert_pico_ok(status[status_str[ch]])
-  
-    #Get values from buffer
-    SGetVals = "GetValues_"+ Device
-    status[SGetVals] = pm.GetValues(chandle, StartIndexGV, ctypes.byref(cmaxSamples), DownRatioGV, 
-                                             DownRatioModeGV, SegIndGV, ctypes.byref(Overflow),
-                                             Device)
-    assert_pico_ok(status[SGetVals])
-
-    data=[[],[],[],[]]
-    for ch in range(4):
-        if readCh_en[ch]==True:
-            data[ch]=bufferMax[ch]
-        else:
-            data[ch]=0 #don't care about ch data we don't want to read
-     
-    return data
-
-
-def init_daq(DevInfo,DaqInfo,ChanInfo):
+def init_daq(DevInfo,DaqInfo,ChanInfo,Status,cHandle):
     global initialised
     global connected
     global status
     global chandle
-  
-    print("Initialising with settings:")
-    print(DevInfo)
-    print(DaqInfo)
-    print(ChanInfo)
+    status = Status
+    chandle = cHandle
+   
+    #set_params(DevInfo,DaqInfo,ChanInfo,[status,chandle])
     set_params(DevInfo,DaqInfo,ChanInfo)
     initialised = False
     connected = False
@@ -456,7 +349,7 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
         open_scope()
         for ch in range(4):
             if readCh_en[ch]==True or trigCh_en[ch]==True: 
-                channel_init(ch,couplings[ch],offset[ch])
+                channel_init(ch,couplings[ch])
         if DAQMode == 1:
             SetSimpleTrigger()
         elif DAQMode == 2:
@@ -468,15 +361,15 @@ def init_daq(DevInfo,DaqInfo,ChanInfo):
     #### take a single event just to wake it up!
     SetTimeBase()
     JustWakeUp()
+    StatRet = [status,chandle]
+    #status = {}
+    #chandle = ctypes.c_int16()
+    return StatRet
 
 def analyseData(data,figname):
     global dataSave
     tint = TimeInt.value
      
-    base = np.array([])
-    wfrms=np.array([])
-    vmax=np.array([])
-    charge=np.array([])
     if (saveFig):
         fig = plt.figure(figsize=(15,8))
         gs = gridspec.GridSpec(4,4)
@@ -488,11 +381,8 @@ def analyseData(data,figname):
    
     chStatus=readCh_en+trigCh_en
     nEv = len(data)
-    dataSave=["BEGINHEADER",chStatus,daqStart,daqEnd,nEv,maxSamples]
+    header=["BEGINHEADER",chStatus,daqStart,daqEnd,nEv,maxSamples]
     waveforms={}
-    #WaveformNSamples = preSamps + postSamps
-    #nReadChannels = np.sum(readCh_en)
-    #waveforms = np.zeros((nReadChannels*nEv,WaveformNSamples)) 
     #### Convert data from digits to mV
     print("Before analysis loop") 
     for i in range(nEv):
@@ -501,27 +391,24 @@ def analyseData(data,figname):
             if readCh_en[ch]==False: continue
             
             adc2mVChMax=np.array(adc2mV(data[i][ch], chRange[ch], maxADC))
-            #baseline =avwf[:BaseWindow].mean()
-            baseline=0
             if len(waveforms)==0:
                 waveforms=np.transpose(adc2mVChMax)
             else:
                 waveforms=np.vstack([waveforms,np.transpose(adc2mVChMax)])
-            #waveforms([i*nReadChannels+count])=np.transpose(adc2mVChMax)
             #print(len(waveforms[i*nReadChannels+count]))
             if (saveFig): 
                 if ch==0:
-                    ax1.plot(timeX, adc2mVChMax[:]-baseline)
+                    ax1.plot(timeX, adc2mVChMax[:])
                 if ch==1:
-                    ax2.plot(timeX, adc2mVChMax[:]-baseline)
+                    ax2.plot(timeX, adc2mVChMax[:])
                 if ch==2:
-                    ax3.plot(timeX, adc2mVChMax[:]-baseline)
+                    ax3.plot(timeX, adc2mVChMax[:])
                 if ch==3:
-                    ax4.plot(timeX, adc2mVChMax[:]-baseline)
+                    ax4.plot(timeX, adc2mVChMax[:])
             count=count+1
 
     print("After analysis loop") 
-    dataSave.append(waveforms)
+    dataSave = np.array([header,waveforms],dtype=object)
 
     if(saveFig):
         ax1.set_xlabel('Time (ns)')
@@ -540,9 +427,8 @@ def analyseData(data,figname):
         print("Save figure") 
         fig.savefig(homeDir+'/Desktop/'+figname)
         plt.close(fig)
-    
 
-
+#### Future work to parallelise this process
 def run_daq(sub,Settings):
     global ofile
     global dataSave
@@ -553,9 +439,9 @@ def run_daq(sub,Settings):
     global status
     global chandle
 
-    #print(Settings[0][0]) 
-    #set_params(Settings[0][0],Settings[0][1],Settings[0][2])
-    #SetTimeBase()
+    #set_params(Settings[0],Settings[1],Settings[2],Stat)
+    set_params(Settings[0],Settings[1],Settings[2])
+    #SetTimeBase() ## should this have already been done in Init stage??
 
     fName_file = fPath+'/data'+str(sub)+'.npy'
     ofile = open(fName_file,"wb")
@@ -570,7 +456,7 @@ def run_daq(sub,Settings):
         if(iEv % PrintRate ==0): print("Event ",iEv,"/",Nevents," in device:",Device)
         rawdata = GetSingleEvent()
         data.append(rawdata)
-        time.sleep(100e-6)
+        time.sleep(50e-6)
      
     daqEnd = time.time()
    
@@ -584,61 +470,11 @@ def run_daq(sub,Settings):
     print("Save")
     np.save(ofile,dataSave,allow_pickle=True)
     ofile.close
-    print("Subrun complete in device ",Device)
-    #status = {}
-    #chandle = ctypes.c_int16()
 
-def run_amp_daq(sub,Settings,Stat,SignalSettings):
-    global ofile
-    global dataSave
-    global daqStart
-    global daqEnd
-    global initialised
-    global connected
+def close(Settings):
     global status
     global chandle
-
-  
-    set_params(Settings[0],Settings[1],Settings[2],Stat)
-    set_siggen(SignalSettings)
-    SetTimeBase()
-
-    fName_file = fPath+'/data'+str(sub)+'.npy'
-    ofile = open(fName_file,"wb")
-    daqStart = time.time()
-    data = []
-
-    if(Nevents<=100): PrintRate = 10
-    elif(Nevents<=500): PrintRate = 50
-    else: PrintRate = 100
-    
-    for iEv in range(Nevents):
-        if(iEv % PrintRate ==0): print("Capture ",iEv,"/",Nevents," in device:",Device)
-        rawdata = GetSigShot()
-        data.append(rawdata)
-        time.sleep(100e-6)
-     
-    daqEnd = time.time()
-   
-    print('Trigger rate = ',float(Nevents)/(daqEnd-daqStart),' Hz')
-    SStop = "Stop_"+Device
-    status[SStop]=pm.StopScope(chandle,Device)
-    assert_pico_ok(status[SStop])
-    dataSave = {}
-    print("Analysing and saving data from device ", Device)
-    analyseData(data,"fig_pico_"+Device+".png")
-    print("Save")
-    np.save(ofile,dataSave,allow_pickle=True)
-    ofile.close
-    print("Subrun complete in device ",Device)
-    status = {}
-    chandle = ctypes.c_int16()
-
-
-def close(Settings,Stat):
-    global status
-    global chandle
-    set_params(Settings[0],Settings[1],Settings[2],Stat)
+    set_params(Settings[0],Settings[1],Settings[2])
     SClose = "Close_"+Device
     status[SClose] = pm.CloseScope(chandle,Device)
     assert_pico_ok(status[SClose])

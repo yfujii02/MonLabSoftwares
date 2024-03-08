@@ -7,10 +7,10 @@
 
 import sys
 import numpy as np
-import MPPCAnalysisFunctions23 as myFunc
+import MPPCAnalysisFunctions as myFunc
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use('agg')
+#matplotlib.use('agg')
 from scipy.optimize import curve_fit
 from fitFunctions import Moyal,Gaus
 from loadSettings import load_analysis_conf
@@ -18,6 +18,7 @@ import os
 
 files=[]
 conffile="analysis_settings.yaml"
+accumulate=False
 
 def main(output,plotch,start,end):
     nch = 0 ### Number of channel, should be constant?
@@ -29,24 +30,22 @@ def main(output,plotch,start,end):
     print(files)
     for file in files:
         myFunc.SetPolarity(waveform["Polarity"])
+        myFunc.EnableChannels(waveform["ReadChannels"])
         myFunc.SetTimeScale(waveform["TimeScale"])
+        myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
+        #myFunc.EnableFFTFilter(filtering["FFTCutoffFrequency"],5)
         myFunc.SetPeakThreshold(waveform["PeakThreshold"])
         myFunc.SetBins(histogram["BinSize"],histogram["LowerRange"],histogram["UpperRange"])
         myFunc.SetSignalWindow(np.array(analysisWindow["Start"]),np.array(analysisWindow["Stop"]),np.array(analysisWindow["Baseline"]))
-        #myFunc.EnableDiffFilter(filtering["DiffPoints"])
-        #myFunc.EnableMovingAverageFilter(filtering["MovingAveragePoints"])
-        #myFunc.EnableFFTFilter(filtering["UpperFFTCutoffFrequency"],filtering["LowerFFTCutoffFrequency"])
-       # myFunc.EnableBaselineFilter()
-        #nch, trR, hData = myFunc.AnalyseFolder(f,False)
-        #plt.show()
         FileString = folder+str(file)+ext
         fname = 'data_'+str(file)
-        myFunc.PlotWaveformsFromAFile(FileString,plotch,start,end) 
-        #plt.close('all')
-       # plt.show()
-        plt.savefig(f'{output}_{count}.png')
+        myFunc.PlotWaveformsFromAFile(FileString,plotch,start,end,accumulate) 
+        #if (myFunc.GetNfiles()%5==0): plt.show()
+        plt.show()
+        input("Press Enter to continue...")
+        #plt.savefig(f'{output}_{count}.png')
+        plt.close('all')
         count=count+1
-   # os.system("mv ./"+output+"*.png /mnt/c/Users/yfuj0004/work/WaveformPlots/")
 
 if __name__ == "__main__":
     args=sys.argv
@@ -59,7 +58,8 @@ if __name__ == "__main__":
     plotch=-1
     Skip=0
     folder ='./'
-    ext = '.npy'
+    #ext = '.npy'
+    ext = ''
     for i in range(len(args)-2):
         print(i,' ',args[i+2])
         if(Skip == 1):
@@ -83,6 +83,9 @@ if __name__ == "__main__":
                 Skip=1
             elif args[i+2]=='ext':
                 ext = str(args[i+3])
+                Skip=1
+            elif args[i+2]=='accumulate':
+                accumulate=True
                 Skip=1
             else:
                 files.append(args[i+2])

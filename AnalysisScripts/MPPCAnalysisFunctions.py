@@ -14,6 +14,7 @@ from scipy import fftpack
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 from scipy.integrate import simps
+from scipy.stats import gaussian_kde
 
 import glob 
 import math
@@ -96,12 +97,14 @@ WfData     = []
 RemoveNoisyEvent=False
 NCh   = 0
 Nevents = 0
+Nfiles = 0
 
 #Global variables
 SigLower = [0,0,0,0]
 SigUpper = [400,400,400,400]
 BaseUpper = [100,100,100,100]
 Polarity  = [1,1,1,1,1]
+Offset    = [0,0,0,0]
 
 ### Flags for each filtering
 MovAvF = 0
@@ -110,6 +113,9 @@ BaseF  = 0
 TrigF  = 0
 DiffF  = 0
 
+AccWf = [[],[],[],[]]
+TimWf = [[],[],[],[]]
+NumWf = [0,0,0,0]
 
 UpperCutoffFreq = 400 ## FFT cut-off frequency in MHz (high)
 LowerCutoffFreq = 400 ##FFT cut-off frequency in MHz (low)
@@ -119,6 +125,7 @@ TrigCutOffHigh = 150 ## trigger cut value high
 TrigCh     = 1   ## trigger channel
 DiffN = 1 ## diff filter n
 
+ReadCh = [False,False,False,False]
 NBins = [100,100,100,100] #Histogram bins used 
 RangeUpper    = [100,100,100,100] #Upper limit of histograms 
 RangeLower    = [100,100,100,100] #Lower limit of histograms 
@@ -128,10 +135,12 @@ TimeBins      = 50
 TimeScale     = 0.8 # It's 4ns/sample for PS3000
 
 #Set a baseline RMS cut off to remove noise
-RMS_Cut = 3.0 #mV (based on plotting RMS values for baseline window [:50])
+RMS_Cut = 1.0 #mV (based on plotting RMS values for baseline window [:50])
 
 ConstantFraction=0.15
 PeakThreshold=[10,10,10,10,40]
+
+IntegrationWindow=[[0,0,0,0],[0,0,0,0]]
 
 ##def Initialise(): # to be implemented
 #### Basic functions
@@ -156,9 +165,28 @@ def SetBins(BinSize,lower,upper):
     RangeLower    = lower
     return 0
 
+def SetIntegrationWindows(start,end):
+    global IntegrationWindow
+    IntegrationWindow[0] = start
+    IntegrationWindow[1] =   end
+
+def SetRemoveNoisyEvents(rms):
+    global RemoveNoisyEvent
+    global RMS_Cut
+    RemoveNoisyEvent = True
+    RMS_Cut = rms
+
+def EnableChannels(readCh):
+    global ReadCh
+    ReadCh = readCh
+
 def SetPolarity(vals):
     global Polarity
     Polarity = np.array(vals).astype(int)
+
+def SetOffset(vals):
+    global Offset
+    Offset = np.array(vals).astype(float)
 
 def SetTimeScale(val):
     global TimeScale
@@ -230,18 +258,30 @@ def MovAvFilter(Signal):
     Signal = Signal[CutEdges:Signal.size-CutEdges]
     
     return Signal
- 
-def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
+
+def GetNfiles():
+    return Nfiles
+
+def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1,acc=False):
+    global Nfiles
+    global AccWf
+    global TimWf
+    global NumWf
     #Plot all waveforms from a given file
 
     #Plot all waveforms from a given file
     if (LoadFile(FName)==False):ErrorExit("DecodeChannels()")
     AnalyseFlag=1
-    Waveforms = DecodeChannels(FName)  
-    for ch in range(NCh): 
+    Nfiles = Nfiles + 1
+    Waveforms = DecodeChannels(FName)
+    for ch in range(NCh):
+        if(ReadCh[ch]==False): continue
         if (plotch>0 and ch!=plotch): continue
         plt.figure()
         plt.figure(figsize=(16,8),dpi=80)
+        BU = BaseUpper[ch]
+        SU = SigUpper[ch]
+        SL = SigLower[ch]
         for i in range(len(Waveforms[ch])):
             #plt.figure()
             if (start>=0 and i<start): continue
@@ -250,38 +290,34 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
             if(AnalyseFlag==1):
                 Signal = Waveforms[ch][i]
                 #plt.plot(Signal,alpha=0.1,color='b',label='Raw')
-                #if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
+                if(FreqF ==1): Signal = FFTFilter(Signal)
                 #plt.plot(Signal,alpha=0.1,label='FFT')
                 #if(DiffF==1): Signal = DiffFilter(Signal)
                 #plt.plot(Signal,alpha = 0.5, label = 'Diff')
                 if(MovAvF==1): Signal = MovAvFilter(Signal)
-                #if(FreqF ==1): Signal = FFTFilter(Signal)   ### Move this before the moving average filter
                 #plt.plot(Signal,alpha=0.1,color='r',label='MA')
                 #if(DiffF==1): Signal = DiffFilter(Signal)
-                plt.plot(Signal,alpha = 0.1,color='g', label = 'Diff')
+                if (acc==False):
+                    plt.plot(np.linspace(SL-100,SU+100,SU-SL+200),Signal[SL-100:SU+100],alpha = 0.1,color='g', label = 'Diff')
                 #if(BaseF ==1): Signal = BaselineFilter(ch,Signal)
-                #Signal = Polarity[int(ch)]*Signal
+                Signal = Polarity[int(ch)]*Signal
                 #ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
-                BU = BaseUpper[ch]
-                SU = SigUpper[ch]
-                SL = SigLower[ch]
 
                 #Calculate RMS of baseline area before signal window
                 RMS = np.std(Signal[:BU])
-    
+
                 #Extract output analysis parameter from waveform
                 PeakVal   = np.max(Signal[SL:SU])
                 PeakIndex = np.argmax(Signal[SL:SU])+SL
-                #if(PeakVal>PeakThreshold[int(Ch)]):
-                #    EdgeTime = GetEdgeTime(Signal[SL:PeakIndex+1],Ch)+SL*TimeScale
-                #else:
-                #    EdgeTime = -1
  
-                #ChargeVal = simps(Signal[SL:SU],ChT[SL:SU]) # scipy integration function
-     
                 #Append outputs
-          
-            if(AnalyseFlag==1): 
+                if (NumWf[ch]==0):
+                    AccWf[ch] = Signal[SL-100:SU+100]
+                else:
+                    AccWf[ch] = np.concatenate([AccWf[ch],Signal[SL-100:SU+100]])
+                NumWf[ch] = NumWf[ch]+1
+
+            if(AnalyseFlag==1):
                 PlotSignal = Signal
                 #plt.plot(Signal, alpha=0.9)
             else: 
@@ -289,14 +325,32 @@ def PlotWaveformsFromAFile(FName,plotch=-1,start=-1,end=-1):
                 plt.plot(PlotSignal,alpha=0.1)
             plt.xlabel("Time (a.u.)")
             plt.ylabel("Voltage (mV)")
-            plt.ylim([-500,500])
+            if (Polarity[ch]<0):
+                plt.ylim([-30,5])
+            else:
+                plt.ylim([-5,30])
             #plt.xlim([0,10])
-            plt.legend()
+            #plt.legend()
             plt.title("Ch "+str(ch))
 
-        plt.savefig("Channel_"+str(ch)+".png")
-       
-                
+        if (acc):
+            npts  = SU-SL+200
+            time  = np.linspace(TimeScale*(SL-100),TimeScale*(SU+100),npts)
+            taxis = np.linspace(TimeScale*(SL-100),TimeScale*(SU+101),npts+1)
+            ymin  = AccWf[ch].min()-2.5
+            ymax  = AccWf[ch].max()+2.5
+            ypts  = int((ymax-ymin)/(0.5))
+            yaxis = np.linspace(ymin,ymax,ypts)
+
+            if NumWf[ch]==1:
+                TimWf[ch] = time
+            else:
+                while(len(AccWf[ch])>len(TimWf[ch])):
+                    TimWf[ch] = np.concatenate([TimWf[ch],time])
+            print(len(AccWf[ch]),len(TimWf[ch]),npts,len(time),NumWf[ch])
+            plt.hist2d(TimWf[ch],AccWf[ch],bins=[taxis,yaxis],cmap=plt.cm.jet,cmin=0.5)
+            plt.title("Ch "+str(ch))
+        #plt.savefig("Channel_"+str(ch)+".png")
 
 def FileList(FPath):
     #For a given folder path, return the files
@@ -313,6 +367,14 @@ def FileList(FPath):
     #if(size==0):FileList = FileList[:-1] 
     return FileListNew
 
+def CountActiveCh(active):
+    print(active)
+    nch=0
+    for i in range(len(active)):
+        if active[i]==True:
+            nch = nch+1
+    return nch
+
 def LoadFile(FName):
     #Returns number of channels
     global FileData
@@ -321,9 +383,14 @@ def LoadFile(FName):
     global WfData
     global FileLoaded
     FileData   = np.array(np.load(FName,allow_pickle=True))
-    HeaderInfo = np.array([FileData[:6]])
-    WfData     = FileData[6]
-    NCh        = int(HeaderInfo[0][1][0]+HeaderInfo[0][1][1]+HeaderInfo[0][1][2]+HeaderInfo[0][1][3])
+    #HeaderInfo = np.array([FileData[:6]])
+    #WfData     = FileData[6]
+    # data structure has been changed
+    HeaderInfo = FileData[0]
+    print(HeaderInfo[1])
+    WfData     = FileData[1]
+    NCh        = CountActiveCh(HeaderInfo[1][:4])
+    print(NCh)
     FileLoaded = True
     if (NCh<1 or NCh>4): return False
     return True
@@ -421,6 +488,7 @@ def ProcessAWaveform(Ch,Signal):
     if(MovAvF==1): Signal = MovAvFilter(Signal)
     if(DiffF == 1): Signal = DiffFilter(Signal)
     if(BaseF ==1): Signal = BaselineFilter(0,Signal) 
+    Signal = Signal - Offset[Ch]
     Signal = Polarity[int(Ch)]*Signal
     ChT = np.linspace(0,len(Signal)*TimeScale,len(Signal)) #All channels have a dt = 0.8 ns
     
@@ -428,8 +496,11 @@ def ProcessAWaveform(Ch,Signal):
     SU = SigUpper[Ch]
     SL = SigLower[Ch]
 
-    #Calculate RMS of baseline area before signal window
+    # Calculate RMS of baseline area before signal window
     RMS = np.std(Signal[:BU])
+    # Calculate and subtract the event-by-event local offset
+    offset = np.mean(Signal[SL-10:SL])
+    Signal = Signal-offset
     
     #Extract output analysis parameter from waveform
     PeakVal   = np.max(Signal[SL:SU])
@@ -441,7 +512,10 @@ def ProcessAWaveform(Ch,Signal):
             EdgeTime = -1
     #EdgeTime = -1
 
-    ChargeVal = simps(Signal[SL:SU],ChT[SL:SU]) # scipy integration function
+    intStart = PeakIndex+IntegrationWindow[0][Ch]
+    intEnd   = PeakIndex+IntegrationWindow[1][Ch]
+    ChargeVal = simps(Signal[intStart:intEnd],
+                      ChT[intStart:intEnd]) # scipy integration function
 
     #Append outputs
     return WfInfo(Ch,PeakIndex,PeakVal,ChargeVal,RMS,EdgeTime)
@@ -493,7 +567,7 @@ def AnalyseSingleFile(FName,ChOutputs):
     Waveforms = DecodeChannels(FName)
     
     NWaveforms = len(Waveforms[0]) #All channels have same number of waveforms
-    TRate = (HeaderInfo[0][4]/(HeaderInfo[0][3]-HeaderInfo[0][2]))
+    TRate = (HeaderInfo[4]/(HeaderInfo[3]-HeaderInfo[2]))
     Nevents += NWaveforms
     
     for i in range(NWaveforms):
@@ -501,6 +575,7 @@ def AnalyseSingleFile(FName,ChOutputs):
         wfInfo=[[],[],[],[]]
         #### check each channel
         for ch in range(NCh):
+            if(ReadCh[ch]==False): continue
             wfInfo[ch] = ProcessAWaveform(ch,Waveforms[ch][i])
             if (wfInfo[ch].rms>RMS_Cut): NoisyEvent=True
 
@@ -512,11 +587,21 @@ def AnalyseSingleFile(FName,ChOutputs):
     FileLoaded = False
     return TRate
 
+def GetHeightArray(chData):
+    dataArray = ExtractWfInfo(chData)
+    return dataArray.getHeightArray()
+
+def GetChargeArray(chData):
+    dataArray = ExtractWfInfo(chData)
+    return dataArray.getChargeArray()
+
+def GetTimeArray(chData):
+    dataArray = ExtractWfInfo(chData)
+    return dataArray.getEdgeTimeArray()
+
 def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     #Analyse all data files in folder located at FPath
     #PlotFlag is an option to output histograms or not
-    
-    MeanTR = 0
     
     FList = FileList(FPath)
     if end==0:
@@ -524,7 +609,6 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
     TriggerRates = []
    
     FileOutputs=[[],[],[],[]]  # 4channels
-    
 
     for i in range(start,end):
         print("Analysing file:",FList[i][len(FPath)-1:])
@@ -533,39 +617,5 @@ def AnalyseFolder(FPath,PlotFlag=False,start=0,end=0):
         print("Trigger rate (Hz) = ",TRate)
 
     TriggerRates=np.array(TriggerRates)   
-    MeanTR = np.mean(TriggerRates)
-    
-    ChPeakData=[]
-    ChTData=[]
-    heightArray=[]
-    timeArray=[]
-    nBins = []
-    for ch in range(NCh): 
-        dataArray = ExtractWfInfo(FileOutputs[ch])
-        print("Channel ", ch)
-       
-        heightArrayTmp = np.array(dataArray.getHeightArray(),dtype=np.float)
-        heightArray.append(heightArrayTmp)
-
-        timeArrayTmp = np.array(dataArray.getEdgeTimeArray(), dtype=np.float)
-        timeArray.append(timeArrayTmp)
-    
-    for ch in range(NCh): 
-        nBins, vals = PlotHistogram(heightArray[ch],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
-          
-        #Coincidence Plotting
-        t_thresh = 10
-        #nBins, vals = PlotHistogram(heightArray[ch][((heightArray[2]>-70)|(heightArray[3]>-70))&(((timeArray[3]-timeArray[0])<t_thresh)|((timeArray[3]-timeArray[1])<t_thresh)|((timeArray[2]-timeArray[0])<t_thresh)|((timeArray[2]-timeArray[1])<t_thresh))],RangeLower[ch],RangeUpper[ch],NBins[ch],str(dataArray.getChannel(0)), "Peak height [mV]")
-        
-        ChPeakData.append(nBins)
-        ChPeakData.append(vals)
-
-
-        nTBins, Tvals = PlotHistogram(timeArray[ch], 3000, 4000, 1000,  str(dataArray.getChannel(0)), "Edge Time [a.u.]")
-    
-        ChTData.append(nTBins)
-        ChTData.append(Tvals)
-
-    ChPeakData = np.array(ChPeakData)
-    ChTData = np.array(ChTData)
-    return NCh, TriggerRates, ChPeakData, ChTData, Nevents 
+    FileOutputs = np.array([FileOutputs],dtype=object)
+    return FileOutputs, NCh, ReadCh, Nevents

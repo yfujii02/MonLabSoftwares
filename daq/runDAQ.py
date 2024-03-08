@@ -1,4 +1,5 @@
 import time
+import ctypes
 from multiprocessing import Process
 from threading import Thread
 import sys
@@ -10,7 +11,7 @@ InitFlag = False
 
 def load_dev(config_file):
     #Read config file and return device and daq settings
-    if(config_file=="Example_settings.yaml" or config_file =='-help'):
+    if(config_file =='-help'):
         fileEx = open('Example_settings.yaml')
         print("Contents of example settings file (Example_settings.yaml):")
         print("##################################")
@@ -44,26 +45,54 @@ def load_sig(sig_file):
             sig = yaml.safe_load(f)
             SigSettings = sig[0]["SigSettings"]
         return SigSettings
-    
 
 def InitDAQ(DeviceInfo,DAQSettings,ChannelSettings):
-    daq.init_daq(DeviceInfo,DAQSettings,ChannelSettings) #initialise daq with specified parameters
+    cHandle = ctypes.c_int16()
+    Status  = {}
+    daq.init_daq(DeviceInfo,DAQSettings,ChannelSettings,Status,cHandle) #initialise daq with specified parameters
 
 def RunDAQ(SubRun,Settings):
-
     #Collect specified number of triggers a total of nSub times by running run_daq function     
     daq.run_daq(SubRun,Settings)
-
-
-def RunAmpDAQ(SubRun,Settings,Stat,SigGen):
-    #Collect specified number of pulse captures
-    daq0.run_amp_daq(SubRun,Settings,Stat,SigGen)    
-
-
 
 def CloseDAQs(Settings): 
     daq.close(Settings) #close the daq
     return
+
+def main():
+    Settings = []
+    StatList = []
+    print("Initialisation from config file: ",devFile) 
+    Dev = []
+    Daq = []
+    Chan = []
+    Status=[]
+
+    Dev,Daq,Chan = load_dev(devFile)
+    if Dev == 0: return
+    Status = InitDAQ(Dev,Daq,Chan)
+    StatList.append(Status)
+    StatList.append(False)
+    Settings= [Dev,Daq,Chan]
+    
+    Nsub = Settings[1]["Nsubruns"]
+
+    for n in range(Nsub):
+         print("Sub Run ",n,"/",Nsub)
+         StartSubRun = time.time() 
+         #print('Sub run inputs')
+         #print('Settings')
+         #print(Settings)
+         #print('StatList')
+         #print(StatList)
+         RStats = [] 
+         RStats = RunDAQ(n,Settings)
+         StatList = RStats
+         EndSubRun = time.time()
+         print("Sub Run Time = ",EndSubRun-StartSubRun)
+         time.sleep(1)
+     
+    CloseDAQs(Settings) 
 
 if __name__ == "__main__":
     print("^^^ Picoscope libraries called ^^^")

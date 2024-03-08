@@ -448,7 +448,7 @@ def analyse_and_plot_data(data,figname):
     stopTime2  = stopTime  + numAve
     chStatus=read_ch_en+trig_ch_en
     nEvents = len(data)
-    dataToSave=["BEGINHEADER",chStatus,daqStartTime,daqEndTime,nEvents,maxSamples]
+    header=["BEGINHEADER",chStatus,daqStartTime,daqEndTime,nEvents,maxSamples]
     waveforms={}
     #### Convert data from digits to mV and perform the simple analysis
     for i in range(nEvents):
@@ -480,7 +480,7 @@ def analyse_and_plot_data(data,figname):
                 ax4.plot(timeX, adc2mVChMax[:]-baseline)
 
 
-    dataToSave.append(waveforms)
+    dataToSave = np.array(header,waveforms,dtype=object)
 
     ax1.set_xlabel('Time (ns)')
     ax1.set_ylabel('Voltage (mV)')
