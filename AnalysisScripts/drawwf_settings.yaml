@@ -1,0 +1,20 @@
+---
+- Waveform:
+    Polarity : [-1,-1,1,1,1]
+    TimeScale: 0.8
+    PeakThreshold: [3,3,3,100,100]
+    ReadChannels: [True,True,True,True]
+- AnalysisWindow:
+    Start   : [510,510,550,550]
+    Stop    : [610,610,880,880] ### Max (N points of waveform) - 2*(Moving average points) ( - 100 for plotting waveforms)
+    Baseline: [300,300,300,300]
+- Filtering:
+    MovingAveragePoints: 10
+    FFTCutoffFrequency : 400
+- Histogram:
+    BinSize:      [0.1,0.1,0.2,2]
+    LowerRange  : [-5,-5,-5,-5]
+    UpperRange  : [20,20,20,590]
+    LandauFit  : False
+    GaussianFit: False
+    

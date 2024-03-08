@@ -1,0 +1,24 @@
+---
+- Waveform:
+    Polarity : [-1,-1,1,1,1]
+    TimeScale: 0.8
+    PeakThreshold: [3,3,3,100,100]
+    ReadChannels: [True,True,True,True]
+    ChannelOffset: [-0.4,0.6,-1.0,0]
+- AnalysisWindow:
+    Start   : [510,510,600,500]
+    Stop    : [610,610,980,590]
+    Baseline: [380,380,380,380]
+    ## followings are with respect to the peak index...
+    IntegrationStart : [-8,-8,-100,0]
+    IntegrationEnd   : [12,12,0,1]
+- Filtering:
+    MovingAveragePoints: 10
+    FFTCutoffFrequency : 400
+- Histogram:
+    BinSize:      [0.1,0.1,0.2,2]
+    LowerRange  : [-4,-4,-4,-5]
+    UpperRange  : [16,16,16,590]
+    LandauFit  : False
+    GaussianFit: False
+    
