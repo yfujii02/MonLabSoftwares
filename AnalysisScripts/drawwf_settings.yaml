@@ -5,7 +5,7 @@
     PeakThreshold: [3,3,3,100,100]
     ReadChannels: [True,True,True,True]
 - AnalysisWindow:
-    Start   : [510,510,550,550]
+    Start   : [110,110,150,150]
     Stop    : [610,610,880,880] ### Max (N points of waveform) - 2*(Moving average points) ( - 100 for plotting waveforms)
     Baseline: [300,300,300,300]
 - Filtering:

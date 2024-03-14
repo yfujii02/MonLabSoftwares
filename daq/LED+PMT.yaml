@@ -7,10 +7,10 @@
     preSamples: 250 #number of samples before the trigger
     postSamples: 750 #number of samples after the trigger
     Tbase: 2 #timebase used 
-    fName: TestLEDTest82V_4ChSummed #folder name for daq data collected
+    fName: TestLEDTest81.5V_1.44V2Ch #folder name for daq data collected
     fPath: '/home/comet/work/data/' #base path to create folder within
     Nevents: 500 #number of events per sub run of daq
-    Nsubruns: 20 #number of sub runs of daq
+    Nsubruns: 100  #number of sub runs of daq
 - ChannelSettings:
     # Voltage range reference
     # 2 = 50 mV

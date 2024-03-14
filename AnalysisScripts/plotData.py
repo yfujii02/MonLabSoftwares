@@ -124,7 +124,7 @@ def main():
         tAxis = np.linspace(400,525,250)
         #for ch in range(2): ### for 1 p.e. analysis
         nfiles = nfiles + 1
-        for ch in range(3):
+        for ch in range(4):
             if (waveform["ReadChannels"][ch]==False): continue
             if ch==2:
                 hAxis = np.linspace( -5,  85,360)
@@ -140,12 +140,12 @@ def main():
 
             #hRes = fit_twice_wG(heightArray)
             #cRes = fit_twice_wG(chargeArray)
-            if ch==2:
-                hRes = fit_pgauss(heightArray,0.5,0.2,0.15)
-                cRes = fit_pgauss(chargeArray,10,30,25)
-            else:
-                hRes = fit_pgauss(heightArray,2.4,0.3,0.2)
-                cRes = fit_pgauss(chargeArray,28,8,5)
+            #if ch==2:
+            #    hRes = fit_pgauss(heightArray,0.5,0.2,0.15)
+            #    cRes = fit_pgauss(chargeArray,10,30,25)
+            #else:
+            #    hRes = fit_pgauss(heightArray,2.4,0.3,0.2)
+            #    cRes = fit_pgauss(chargeArray,28,8,5)
 
             tCut = [200,900]
             if ch<2:
@@ -161,27 +161,29 @@ def main():
                 if i==1:
                     axes[j,i%2].hist(chargeArray[timeArray<tCut[1]],bins=cAxis,density=True,alpha=0.8)
                     #axes[j,i%2].plot(cAxis2, gauss_pdf(cAxis2, *cRes.values[:]), label='mu='+"{:6.2f}".format(cRes.values["mu"]), linewidth=2)
-                    axes[j,i%2].plot(cAxis2, pois_gauss_pdf(cAxis2, *cRes.values[:]), label='plambda='+"{:6.2f}".format(cRes.values["plambda"]), linewidth=2)
+                    #axes[j,i%2].plot(cAxis2, pois_gauss_pdf(cAxis2, *cRes.values[:]), label='plambda='+"{:6.2f}".format(cRes.values["plambda"]), linewidth=2)
                 if i==2:
                     axes[j,i%2].hist(heightArray[timeArray<tCut[1]],bins=hAxis,density=True,alpha=0.8)
                     #axes[j,i%2].plot(hAxis2, gauss_pdf(hAxis2, *hRes.values[:]), label='mu='+"{:6.2f}".format(hRes.values["mu"]), linewidth=2)
-                    axes[j,i%2].plot(hAxis2, pois_gauss_pdf(hAxis2, *hRes.values[:]), label='plambda='+"{:6.2f}".format(hRes.values["plambda"]), linewidth=2)
+                    #axes[j,i%2].plot(hAxis2, pois_gauss_pdf(hAxis2, *hRes.values[:]), label='plambda='+"{:6.2f}".format(hRes.values["plambda"]), linewidth=2)
                 if i==3:
                     axes[j,i%2].hist(timeArray,bins=tAxis,alpha=0.8)
                 axes[j,i%2].set_xlabel(title[i][0])
                 axes[j,i%2].set_ylabel(title[i][1])
                 axes[j,i%2].set_title(ctitle[i]+" @ ch"+str(ch)) 
                 axes[j,i%2].legend()
+                axes[j,i%2].set_yscale('log')
+                #axes[j,i%2].set_ylim([0,0.02])
 
             # put fit results in arrays
             #hMean[ch].append(hRes.values["mu"])
             #hError[ch].append(hRes.errors["mu"])
             #cMean[ch].append(cRes.values["mu"])
             #cError[ch].append(cRes.errors["mu"])
-            hMean[ch].append(hRes.values["plambda"])
-            hError[ch].append(hRes.errors["plambda"])
-            cMean[ch].append(cRes.values["plambda"])
-            cError[ch].append(cRes.errors["plambda"])
+            #hMean[ch].append(hRes.values["plambda"])
+            #hError[ch].append(hRes.errors["plambda"])
+            #cMean[ch].append(cRes.values["plambda"])
+            #cError[ch].append(cRes.errors["plambda"])
 
             fig = plt.gcf()
             fig.set_size_inches(16.20,10.80)
