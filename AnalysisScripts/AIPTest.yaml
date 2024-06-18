@@ -1,0 +1,20 @@
+---
+- Waveform:
+    Polarity : [-1,-1,1,1,1]
+    TimeScale: 0.8
+    PeakThreshold: [2.5,100,20,20,80]
+    Offset: [0,0,0,0]
+- AnalysisWindow:
+    Start   : [355,250,350,350]
+    Stop    : [385,450,450,450]
+    Baseline: [150,150,150,150]
+- Filtering:
+    MovingAveragePoints: 3
+    FFTCutoffFrequency : 400
+    DiffPoints: 20
+- Histogram:
+    BinSize: [0.1,1,2,2]
+    LowerRange  : [0,0,100,100]
+    UpperRange  : [20,1000,500,500]
+    GaussianFit: True
+    
